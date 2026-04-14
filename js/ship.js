@@ -9,6 +9,11 @@ export function initShip(scene) {
     sternGroup = new THREE.Group();
     unifiedHullsGroup = new THREE.Group();
     
+    // Regular Unscaled Groups
+    const bowModelGroup = bowGroup;
+    const sternModelGroup = sternGroup;
+    const unifiedModelGroup = unifiedHullsGroup;
+
     shipGroup.add(unifiedHullsGroup);
     shipGroup.add(bowGroup);
     shipGroup.add(sternGroup);
@@ -26,7 +31,7 @@ export function initShip(scene) {
 
     function getHullZ(x, y, maxZ) {
         let z = maxZ;
-        const ny = Math.max(0, Math.min(1, (y + 10) / 35));
+        const ny = Math.max(0, Math.min(1, (y + 2) / 27));
         if (x > 20) z *= Math.max(0.01, 1 - Math.pow((x - 20) / 50, 1.2));
         if (x < -40) z *= Math.max(0.3, 1 - Math.pow((-x - 40) / 30, 2) * 0.7);
         z *= (0.1 + 0.9 * Math.pow(ny, 0.4));
@@ -56,7 +61,7 @@ export function initShip(scene) {
         mesh.castShadow = true; mesh.receiveShadow = true;
         mesh.visible = false;
         splitHulls.push(mesh);
-        (isStern ? sternGroup : bowGroup).add(mesh);
+        (isStern ? sternModelGroup : bowModelGroup).add(mesh);
     }
     
     // Generator for unified (seamless) initial hulls
@@ -75,17 +80,41 @@ export function initShip(scene) {
         const mesh = new THREE.Mesh(geo, mat);
         mesh.position.y = (topY + bottomY) / 2;
         mesh.castShadow = true; mesh.receiveShadow = true;
-        unifiedHullsGroup.add(mesh);
+        unifiedModelGroup.add(mesh);
     }
 
-    // Create both sets
-    createSplitHull(15, 140, 25, 10, hullMat, false);
-    createSplitHull(15, 140, 25, 10, hullMat, true);
-    createSplitHull(14.8, 138, 10, -10, bottomMat, false);
-    createSplitHull(14.8, 138, 10, -10, bottomMat, true);
+    // Create both sets (Width 27)
+    createSplitHull(27, 140, 25, 10, hullMat, false);
+    createSplitHull(27, 140, 25, 10, hullMat, true);
+    createSplitHull(26.6, 138, 10, -2, bottomMat, false);
+    createSplitHull(26.6, 138, 10, -2, bottomMat, true);
     
-    createUnifiedHull(15, 140, 25, 10, hullMat);
-    createUnifiedHull(14.8, 138, 10, -10, bottomMat);
+    createUnifiedHull(27, 140, 25, 10, hullMat);
+    createUnifiedHull(26.6, 138, 10, -2, bottomMat);
+    
+    // Add glowing portholes along the hull sides
+    const portMat = new THREE.MeshBasicMaterial({color: 0xffddaa});
+    const portGeo = new THREE.PlaneGeometry(0.5, 0.5);
+    for (let x = -65; x <= 65; x += 3.5) {
+        if (Math.abs(x) < 2) continue; // Skip seam
+        if (Math.random() > 0.2) {
+            const group = x < 0 ? sternModelGroup : bowModelGroup;
+            const yTarget = 17 + Math.random() * 2; // Below deck line
+            const hullZ = getHullZ(x, yTarget, 13.5);
+            
+            // Left side
+            const p1 = new THREE.Mesh(portGeo, portMat);
+            p1.position.set(x, yTarget, hullZ + 0.05);
+            p1.rotation.y = Math.atan2(0, 1); // roughly face out
+            group.add(p1);
+            
+            // Right side
+            const p2 = new THREE.Mesh(portGeo, portMat);
+            p2.position.set(x, yTarget, -hullZ - 0.05);
+            p2.rotation.y = Math.PI;
+            group.add(p2);
+        }
+    }
 
     // Decks
     function generateDeckVerts(geo, length, offsetX) {
@@ -101,15 +130,15 @@ export function initShip(scene) {
     }
 
     // Split decks
-    const splitDeck1 = new THREE.PlaneGeometry(70, 15, 32, 16); generateDeckVerts(splitDeck1, 140, 35);
-    const m1 = new THREE.Mesh(splitDeck1, woodMat); m1.rotation.x = -Math.PI / 2; m1.position.set(35, 25.1, 0); m1.receiveShadow = true; m1.visible = false; splitHulls.push(m1); bowGroup.add(m1);
+    const splitDeck1 = new THREE.PlaneGeometry(70, 27, 32, 16); generateDeckVerts(splitDeck1, 140, 35);
+    const m1 = new THREE.Mesh(splitDeck1, woodMat); m1.rotation.x = -Math.PI / 2; m1.position.set(35, 25.1, 0); m1.receiveShadow = true; m1.visible = false; splitHulls.push(m1); bowModelGroup.add(m1);
     
-    const splitDeck2 = new THREE.PlaneGeometry(70, 15, 32, 16); generateDeckVerts(splitDeck2, 140, -35);
-    const m2 = new THREE.Mesh(splitDeck2, woodMat); m2.rotation.x = -Math.PI / 2; m2.position.set(-35, 25.1, 0); m2.receiveShadow = true; m2.visible = false; splitHulls.push(m2); sternGroup.add(m2);
+    const splitDeck2 = new THREE.PlaneGeometry(70, 27, 32, 16); generateDeckVerts(splitDeck2, 140, -35);
+    const m2 = new THREE.Mesh(splitDeck2, woodMat); m2.rotation.x = -Math.PI / 2; m2.position.set(-35, 25.1, 0); m2.receiveShadow = true; m2.visible = false; splitHulls.push(m2); sternModelGroup.add(m2);
 
     // Unified deck
-    const unifiedDeck = new THREE.PlaneGeometry(140, 15, 64, 16); generateDeckVerts(unifiedDeck, 140, 0);
-    const m3 = new THREE.Mesh(unifiedDeck, woodMat); m3.rotation.x = -Math.PI / 2; m3.position.set(0, 25.1, 0); m3.receiveShadow = true; unifiedHullsGroup.add(m3);
+    const unifiedDeck = new THREE.PlaneGeometry(140, 27, 64, 16); generateDeckVerts(unifiedDeck, 140, 0);
+    const m3 = new THREE.Mesh(unifiedDeck, woodMat); m3.rotation.x = -Math.PI / 2; m3.position.set(0, 25.1, 0); m3.receiveShadow = true; unifiedModelGroup.add(m3);
 
     // Superstructures
     const buildTier = (minX, maxX, baseH, depth, yLevel) => {
@@ -120,7 +149,7 @@ export function initShip(scene) {
         }
         const w = maxX - minX;
         const cx = (minX + maxX) / 2;
-        const targetGroup = cx < 0 ? sternGroup : bowGroup;
+        const targetGroup = cx < 0 ? sternModelGroup : bowModelGroup;
 
         const geo = new THREE.BoxGeometry(w, baseH, depth);
         const mesh = new THREE.Mesh(geo, whiteMat);
@@ -141,27 +170,64 @@ export function initShip(scene) {
                 w2.position.set(x, yLevel + baseH/2, -depth/2 - 0.05); w2.rotation.y = Math.PI; targetGroup.add(w2);
             }
         }
+        
+        // Front Facing Windows (giving the stepped-back details)
+        if (minX >= 0) { // Bow facing pieces
+            for (let z = -depth/2 + 1.5; z <= depth/2 - 1.5; z += 2.0) {
+                if(Math.random() > 0.1) {
+                    const fw = new THREE.Mesh(wndGeo, windowMat);
+                    fw.position.set(maxX + 0.05, yLevel + baseH/2, z);
+                    fw.rotation.y = Math.PI / 2;
+                    targetGroup.add(fw);
+                }
+            }
+        }
     };
+    
+    // Wider superstructures
+    buildTier(-40, 35, 4.5, 22, 25.1); // C-Deck
+    buildTier(-35, 30, 4.0, 20, 29.6); // B-Deck
+    buildTier(-30, 25, 3.5, 18, 33.6); // A-Deck
+    buildTier(-20, 15, 2.5, 14, 37.1); // Bridge Tiers // Roof
 
-    buildTier(-42.5, 42.5, 4, 12, 25.5);   // C Deck
-    buildTier(-37.5, 37.5, 4, 11, 29.5);   // B Deck
-    buildTier(-32.5, 32.5, 3.5, 10, 33.5); // A Deck
-    buildTier(-22.5, 22.5, 2.5, 8, 37);    // Roof
-
-    // Bridge 
+    // Bridge & Wings
     const bridgeFront = new THREE.Mesh(new THREE.BoxGeometry(0.5, 3, 10), woodMat);
     bridgeFront.position.set(22.5, 38.5, 0);
-    bowGroup.add(bridgeFront);
+    bowModelGroup.add(bridgeFront);
+    
+    // Bridge wing overhangs
+    const bridgeWing = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.0, 14), whiteMat);
+    bridgeWing.position.set(22.0, 38.0, 0);
+    bowModelGroup.add(bridgeWing);
+
     buildTier(12.5, 22.5, 3, 10, 37);
 
+    // Forward Cargo Cranes (Derricks)
+    function buildCrane(x, z) {
+        const cGrp = new THREE.Group();
+        const crBase = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 3), whiteMat);
+        crBase.position.y = 1.5; cGrp.add(crBase);
+        const crArm = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 8), whiteMat);
+        crArm.position.set(2.5, 4, 0); crArm.rotation.z = Math.PI/3; cGrp.add(crArm);
+        cGrp.position.set(x, 25.1, z);
+        bowModelGroup.add(cGrp);
+    }
+    buildCrane(48, 2.5);
+    buildCrane(48, -2.5);
+    buildCrane(52, 0);
+
     // Funnels
+    if (!shipGroup.userData) shipGroup.userData = {};
+    shipGroup.userData.funnels = [];
     const RAKE = -0.15;
     const funnelObjGeo = new THREE.CylinderGeometry(1.6, 1.6, 12, 16);
     const funnelCapGeo = new THREE.CylinderGeometry(1.65, 1.65, 2.5, 16);
     for (let i = 0; i < 4; i++) {
         const cx = 22 - (i * 16);
         const cy = 44; 
-        const tg = cx < 0 ? sternGroup : bowGroup;
+        const tg = cx < 0 ? sternModelGroup : bowModelGroup;
+        
+        shipGroup.userData.funnels.push({x: cx, y: cy + 5, z: 0});
 
         const funnel = new THREE.Mesh(funnelObjGeo, funnelMat);
         funnel.position.set(cx, cy, 0);
@@ -183,6 +249,19 @@ export function initShip(scene) {
                 tg.add(p);
             }
         }
+
+        // Funnel Rigging Cables tying to the deck
+        const createCable = (vx, vy, vz) => {
+            const geo = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(cx, cy + 5, 0), 
+                new THREE.Vector3(vx, vy, vz)     
+            ]);
+            tg.add(new THREE.Line(geo, wireMat));
+        };
+        createCable(cx + 6, 38.5, 5);
+        createCable(cx + 6, 38.5, -5);
+        createCable(cx - 6, 38.5, 5);
+        createCable(cx - 6, 38.5, -5);
     }
 
     // Masts
@@ -190,22 +269,104 @@ export function initShip(scene) {
     const foremast = new THREE.Mesh(mastGeo, woodMat);
     foremast.position.set(55, 40, 0);
     foremast.rotation.z = RAKE;
-    bowGroup.add(foremast);
+    bowModelGroup.add(foremast);
     
     const mainmast = new THREE.Mesh(mastGeo, woodMat);
     mainmast.position.set(-60, 40, 0);
     mainmast.rotation.z = RAKE;
-    sternGroup.add(mainmast);
+    sternModelGroup.add(mainmast);
 
-    // Lifeboats
-    const boatGeo = new THREE.BoxGeometry(3, 1, 1.5);
-    const boatMat = new THREE.MeshStandardMaterial({color: 0xeeeeee});
-    for(let side=-1; side<=1; side+=2) {
-        for(let j=0; j<8; j++) {
+    // Detailed Lifeboats
+    const davitMat = new THREE.MeshStandardMaterial({color: 0x444444, roughness: 0.8}); // Dark Iron
+    const canvasMat = new THREE.MeshStandardMaterial({color: 0xcca578}); // Tan canvas
+    
+    function buildDetailedLifeboat() {
+        const boatGrp = new THREE.Group();
+        const hullGeo = new THREE.SphereGeometry(1, 16, 12, 0, Math.PI*2, 0, Math.PI/2);
+        hullGeo.scale(1.5, 0.5, 3.0);
+        const b = new THREE.Mesh(hullGeo, whiteMat);
+        b.rotation.x = Math.PI; // upside down so flat is top
+        b.position.y = 0.5;
+        boatGrp.add(b);
+        
+        // Wooden rim for contrast
+        const rim = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.1, 5.9), woodMat);
+        rim.position.y = 0.5;
+        boatGrp.add(rim);
+
+        // Canvas cover
+        const cover = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.1, 5.8), canvasMat);
+        cover.position.y = 0.55;
+        boatGrp.add(cover);
+        
+        // Davits (arms holding the boat) - Now Dark Iron so they stand out
+        const davGeo = new THREE.CylinderGeometry(0.1, 0.1, 2.5);
+        const lDavit = new THREE.Mesh(davGeo, davitMat); lDavit.position.set(0, -0.5, 2.8); lDavit.rotation.x = 0.4; boatGrp.add(lDavit);
+        const rDavit = new THREE.Mesh(davGeo, davitMat); rDavit.position.set(0, -0.5, -2.8); rDavit.rotation.x = -0.4; boatGrp.add(rDavit);
+
+        return boatGrp;
+    }
+
+    for (let side=-1; side<=1; side+=2) {
+        for (let j=0; j<8; j++) {
             const bx = 15 - (j * 4.5);
-            const boat = new THREE.Mesh(boatGeo, boatMat);
-            boat.position.set(bx, 36.5, side * 4.5);
-            (bx < 0 ? sternGroup : bowGroup).add(boat);
+            const boat = buildDetailedLifeboat();
+            boat.position.set(bx, 37.0, side * 4.2);
+            boat.rotation.y = side === 1 ? 0 : Math.PI;
+            (bx < 0 ? sternModelGroup : bowModelGroup).add(boat);
+        }
+    }
+
+    // Roof Details (Skylights and Ventilation Cowls)
+    function createVent(x, z, scale, dir) {
+        const grp = new THREE.Group();
+        const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 3), whiteMat);
+        pipe.position.y = 1.5; grp.add(pipe);
+        const cowl = new THREE.Mesh(new THREE.SphereGeometry(0.9), whiteMat);
+        cowl.position.set(dir * 0.5, 3, 0); grp.add(cowl);
+        grp.position.set(x, 38.25, z);
+        grp.scale.set(scale, scale, scale);
+        (x < 0 ? sternModelGroup : bowModelGroup).add(grp);
+    }
+    
+    function createSkylight(x, z, w, l) {
+        const grp = new THREE.Group();
+        const base = new THREE.Mesh(new THREE.BoxGeometry(w, 0.8, l), whiteMat);
+        base.position.y = 0.4; grp.add(base);
+        const glass = new THREE.Mesh(new THREE.PlaneGeometry(w-0.4, l-0.4), new THREE.MeshBasicMaterial({color: 0x4488ff}));
+        glass.rotation.x = -Math.PI/2; glass.position.y = 0.81; grp.add(glass);
+        grp.position.set(x, 38.25, z);
+        (x < 0 ? sternModelGroup : bowModelGroup).add(grp);
+    }
+
+    createSkylight(10, 0, 4, 3);
+    createSkylight(-10, 0, 5, 4);
+    createSkylight(-20, 0, 3, 3);
+    
+    createVent(8, 2, 0.8, 1);
+    createVent(8, -2, 0.8, -1);
+    createVent(-5, 2.5, 1.2, 1);
+    createVent(-5, -2.5, 1.2, -1);
+
+    // Deck Chairs 
+    function buildDeckChair() {
+        const c = new THREE.Group();
+        const back = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.5, 0.1), woodMat);
+        back.position.set(0, 0.6, -0.4); back.rotation.x = -0.4; c.add(back);
+        const seat = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.1, 1.2), woodMat);
+        seat.position.set(0, 0.2, 0); c.add(seat);
+        return c;
+    }
+    for (let side=-1; side<=1; side+=2) {
+        // A-Deck Chairs
+        for (let j=0; j<15; j++) {
+            const charX = 20 - (j * 3);
+            if (Math.random() > 0.4) {
+                const chair = buildDeckChair();
+                chair.position.set(charX, 33.6, side * 3.7);
+                chair.rotation.y = side === 1 ? Math.PI : 0;
+                (charX < 0 ? sternModelGroup : bowModelGroup).add(chair);
+            }
         }
     }
 
@@ -224,20 +385,35 @@ export function initShip(scene) {
             p.add(blade);
         }
         p.position.set(x, y, z); p.scale.set(scale, scale, scale);
-        sternGroup.add(p);
+        sternModelGroup.add(p);
     }
     buildPropeller(-68, -3, 0, 1.2); 
-    buildPropeller(-64, -1, 3.5, 0.8); // Much closer to hull center
-    buildPropeller(-64, -1, -3.5, 0.8); // Much closer to hull center
+    buildPropeller(-64, -1, 3.5, 0.8); 
+    buildPropeller(-64, -1, -3.5, 0.8); 
 
     scene.add(shipGroup);
     return shipGroup;
 }
 
-export function updateShip(group) {
-    if (!group) return;
-    group.visible = game.currentRoom === 'deck';
+export function updateShip(shipGroup) {
+    if (!game.running) return;
     
+    shipGroup.visible = game.currentRoom === 'deck';
+
+    // Lateral Steering Physics & Visuals!
+    if (game.phase === 'sailing' && game.ship.zPos !== undefined) {
+        // Slide ship sideways slowly
+        shipGroup.position.z += (game.ship.zPos - shipGroup.position.z) * 0.05;
+        
+        // Add realistic tilt/yaw while turning
+        const targetYaw = (game.ship.zPos - shipGroup.position.z) * 0.02; // Twist left/right
+        shipGroup.rotation.y += (targetYaw - shipGroup.rotation.y) * 0.1;
+        
+        // Bank (roll) slightly 
+        const targetRoll = (game.ship.zPos - shipGroup.position.z) * 0.005; 
+        shipGroup.rotation.x += (targetRoll - shipGroup.rotation.x) * 0.1;
+    }
+
     if (game.phase === 'sinking') {
         const timeSinceHit = game.time - game.ship.sinkStartTime;
         
@@ -245,8 +421,8 @@ export function updateShip(group) {
         game.ship.tilt = Math.min(0.8, (timeSinceHit / 60) * 0.4); 
         game.ship.sinkY -= 0.005; // Drop entire ship down
         
-        group.rotation.z = game.ship.tilt;
-        group.position.y = game.ship.sinkY;
+        shipGroup.rotation.z = game.ship.tilt;
+        shipGroup.position.y = game.ship.sinkY;
 
         // The Break Event (~60 seconds in)
         if (timeSinceHit > 60 && !game.ship.isBroken) {
@@ -257,20 +433,50 @@ export function updateShip(group) {
         }
 
         if (game.ship.isBroken) {
-            // Bow group plunges down wildly
-            bowGroup.rotation.z = Math.min(1.5, bowGroup.rotation.z + 0.02);
-            bowGroup.position.y -= 0.5;
+            // Bow group (+X) tip must plunge DOWN, so it requires negative Z rotation!
+            bowGroup.rotation.z = Math.max(-1.5, bowGroup.rotation.z - 0.004);
+            bowGroup.position.y -= 0.1;
             
-            // Stern group raises its ass (propellers) high into the air and bobs like a cork
+            // Stern group needs to rotate its -X tail UPWARD, which means negative Z rotation!
             game.ship.sternTilt = game.ship.sternTilt || 0;
-            game.ship.sternTilt += (1.0 - game.ship.sternTilt) * 0.005; 
+            const targetTilt = -1.2; // roughly 70 degrees up into the air
+            game.ship.sternTilt += (targetTilt - game.ship.sternTilt) * 0.001; 
             sternGroup.rotation.z = game.ship.sternTilt;
 
+            // Sink base 10x slower than previous (from 0.0005 to 0.00005)
+            game.ship.sternBase = game.ship.sternBase === undefined ? 12 : game.ship.sternBase - 0.00005; 
             game.ship.sternY = game.ship.sternY === undefined ? 0 : game.ship.sternY;
-            game.ship.sternY -= 0.02; // Very slow sink
+            game.ship.sternY += (game.ship.sternBase - game.ship.sternY) * 0.002; 
             
             // Bobbing formula 
-            sternGroup.position.y = game.ship.sternY + (Math.sin(timeSinceHit * 2) * 0.5); 
+            sternGroup.position.y = game.ship.sternY + (Math.sin(timeSinceHit * 1.5) * 0.3); 
+        }
+    }
+
+    // Process Engine Smoke
+    if (!shipGroup.userData.smokes) shipGroup.userData.smokes = [];
+    const smokes = shipGroup.userData.smokes;
+    if (game.phase === 'sailing' && game.ship.speed > 0) {
+        if (Math.random() < 0.3 && shipGroup.userData.funnels) {
+            shipGroup.userData.funnels.forEach((f, idx) => {
+                const sMat = new THREE.MeshBasicMaterial({color: 0x222222, transparent: true, opacity: 0.8});
+                const s = new THREE.Mesh(new THREE.SphereGeometry(1.5, 8, 8), sMat);
+                s.position.set(f.x, f.y, f.z);
+                shipGroup.add(s);
+                smokes.push(s);
+            });
+        }
+    }
+    for (let i = smokes.length - 1; i >= 0; i--) {
+        let s = smokes[i];
+        s.position.x -= 0.8; // Blow backwards
+        s.position.y += 0.3; // Rise Up
+        s.scale.setScalar(s.scale.x + 0.06);
+        s.material.opacity -= 0.015;
+        if (s.material.opacity <= 0) {
+            s.parent.remove(s);
+            s.material.dispose();
+            smokes.splice(i, 1);
         }
     }
 }

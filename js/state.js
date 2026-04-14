@@ -16,6 +16,7 @@ export const game = {
         sinkStartTime: 0,
         isBroken: false
     },
+    icebergMode: 'normal', // 'off', 'normal', 'double'
     players: {
         jack: { name: 'Джек', x: 10, z: 2, alive: true },
         rose: { name: 'Роуз', x: 20, z: -2, alive: true }

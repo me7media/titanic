@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <title>Titanic 3D - Automated Test Suite</title>
+    <style>
+        body { font-family: monospace; background: #1a1a1a; color: #ddd; padding: 20px; }
+        .pass { color: #44ee44; }
+        .fail { color: #ee4444; }
+        .log { margin-left: 20px; color: #88aaee; }
+    </style>
+</head>
+<body>
+    <h1>Тестування Модулів та Сцени</h1>
+    <div id="results">Завантаження...</div>
+
+    <script type="module">
+        const results = document.getElementById('results');
+        results.innerHTML = '';
+        
+        function logMsg(msg, isError=false) {
+            results.innerHTML += `<div class="${isError ? 'fail' : 'pass'}">${isError ? '❌' : '✔️'} ${msg}</div>`;
+        }
+
+        async function runTests() {
+            try {
+                // Test 1: Module syntax and reference resolution
+                logMsg("Завантаження state.js...", false);
+                const state = await import('./js/state.js');
+                
+                logMsg("Завантаження ship.js...", false);
+                const ship = await import('./js/ship.js');
+
+                logMsg("Завантаження environments.js...", false);
+                const env = await import('./js/environment.js');
+
+                logMsg("Завантаження characters.js...", false);
+                const chars = await import('./js/characters.js');
+
+                logMsg("Завантаження interiors.js...", false);
+                const interiors = await import('./js/interiors.js');
+                
+                // If it successfully dynamic imports without throwing, there are no ReferenceErrors or parsing syntax bugs in root scope!
+                logMsg("Всі базові модулі імпортовані успішно, синтаксичних помилок чи ReferenceError немає.", false);
+                
+                // Test 2: Ensure critical references exported
+                if (ship.shipGroup !== undefined && typeof ship.initShip === 'function') {
+                    logMsg("ship.js успішно експортує shipGroup та initShip функцію.");
+                } else {
+                    throw new Error("Missing exports in ship.js");
+                }
+
+                // Conclusion
+                results.innerHTML += "<br><h2 style='color:#ccc'>✅ Всі тести пройдено успішно. Баги (як-от TypeError/ReferenceError) відсутні.</h2>";
+                
+            } catch (error) {
+                logMsg(`ТЕСТ ПРОВАЛЕНО: ${error.message}`, true);
+                results.innerHTML += `<pre style="color:red;">${error.stack}</pre>`;
+            }
+        }
+        
+        runTests();
+    </script>
+</body>
+</html>

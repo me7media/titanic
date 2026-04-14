@@ -12,6 +12,15 @@ let jackMesh, roseMesh, rescueBoat;
 // Global lights that should be dimmed indoors
 let ambientLight, hemiLight, moonLight;
 
+// Unscaled Deck Metrics (WIDENED proportions)
+const DECK_LEVELS = [
+    { y: 27.35, minX: -68, maxX: 68, zMax: 13 }, // Main Deck
+    { y: 31.75, minX: -39, maxX: 34, zMax: 10.5 },   // C-Deck
+    { y: 35.75, minX: -34, maxX: 29, zMax: 9.5 },   // B-Deck
+    { y: 39.25, minX: -29, maxX: 24, zMax: 8.5 },   // A-Deck
+    { y: 41.75, minX: -19, maxX: 14, zMax: 6.5 }    // Bridge Roof
+];
+
 function init() {
     const container = document.getElementById('game-container');
     
@@ -33,15 +42,16 @@ function init() {
     renderer.toneMappingExposure = 1.2;
     container.insertBefore(renderer.domElement, document.getElementById('ui-overlay'));
 
-    // Global Lighting
-    ambientLight = new THREE.AmbientLight(0x405570, 2.0); // Brighter blue
+    // Lighting (Starts Evening, shifts to Night)
+    ambientLight = new THREE.AmbientLight(0xffccaa, 2.0); // Warm evening initially
     scene.add(ambientLight);
 
-    hemiLight = new THREE.HemisphereLight(0xe0eeff, 0x0a1525, 1.2);
+    hemiLight = new THREE.HemisphereLight(0xffbb88, 0x080820, 1.2);
     scene.add(hemiLight);
 
-    moonLight = new THREE.DirectionalLight(0xffffff, 2.0);
-    moonLight.position.set(-200, 150, 200);
+    moonLight = new THREE.DirectionalLight(0xffa060, 2.0);
+    // Behind and to the left: -X, +Y, -Z
+    moonLight.position.set(-150, 100, -100);
     moonLight.castShadow = true;
     moonLight.shadow.mapSize.width = 2048;
     moonLight.shadow.mapSize.height = 2048;
@@ -73,9 +83,35 @@ function init() {
     rescueBoat = new THREE.Group();
     const hullMat = new THREE.MeshStandardMaterial({color: 0xdddddd});
     const woodMat = new THREE.MeshStandardMaterial({color: 0x5a3311});
-    const b1 = new THREE.Mesh(new THREE.BoxGeometry(12, 2, 4), hullMat); b1.position.y = 1; rescueBoat.add(b1);
-    const b2 = new THREE.Mesh(new THREE.BoxGeometry(10, 0.5, 3), woodMat); b2.position.y = 2; rescueBoat.add(b2);
-    rescueBoat.position.set(10, 0, 15);
+
+    // Main hull
+    const sHull = new THREE.Mesh(new THREE.BoxGeometry(3.6, 1.2, 8), hullMat);
+    sHull.position.y = 0.6;
+    rescueBoat.add(sHull);
+    
+    // Tapered bow and stern using 3-sided cylinders
+    const bow = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 1.8, 1.2, 3), hullMat);
+    bow.position.set(0, 0.6, 4);
+    bow.rotation.y = Math.PI / 6;
+    rescueBoat.add(bow);
+    
+    const stern = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 1.8, 1.2, 3), hullMat);
+    stern.position.set(0, 0.6, -4);
+    stern.rotation.y = -Math.PI / 6 + Math.PI;
+    rescueBoat.add(stern);
+
+    // Wooden seats
+    for(let z = -3.5; z <= 3.5; z += 1.7) {
+        let seatWidth = 3.6;
+        if (Math.abs(z) > 2) seatWidth = 2.4;
+        const seat = new THREE.Mesh(new THREE.BoxGeometry(seatWidth, 0.1, 0.8), woodMat);
+        seat.position.set(0, 1.2, z);
+        rescueBoat.add(seat);
+    }
+    
+    // Set position and default visibility
+    rescueBoat.position.set(10, 0.5, 12);
+    rescueBoat.visible = false;
     scene.add(rescueBoat);
 
     window.addEventListener('resize', onWindowResize);
@@ -83,6 +119,14 @@ function init() {
     window.addEventListener('keyup', e => game.keys[e.key] = false);
 
     document.getElementById('start-btn').addEventListener('click', startGame);
+    
+    // Add event listener for close button on Help Menu
+    const closeHelpMenu = document.getElementById('close-help');
+    if (closeHelpMenu) {
+        closeHelpMenu.addEventListener('click', () => {
+            document.getElementById('help-menu').classList.add('hidden');
+        });
+    }
 
     renderer.setAnimationLoop(gameLoop);
 }
@@ -127,17 +171,23 @@ function updateCamera() {
         camera.position.lerp(new THREE.Vector3(activeMesh.position.x * 0.4, yOffset + 12, activeMesh.position.z + 16), 0.05);
         camera.lookAt(new THREE.Vector3(activeMesh.position.x * 0.8, yOffset + 4, activeMesh.position.z - 8));
     } else {
-        scene.fog = new THREE.FogExp2(0x1a2b42, 0.0025); // Bring fog back outdoors
+        scene.fog = new THREE.FogExp2(0x08101a, 0.0025); // Bring fog back outdoors
         // Restore bright global moonlight
         ambientLight.intensity = 2.0;
         hemiLight.intensity = 1.2;
         moonLight.intensity = 2.0;
         
         if (game.controlMode === 'ship') {
-            const camX = Math.sin(game.time * 0.1) * 120;
-            const camZ = 100 + Math.cos(game.time * 0.1) * 40;
-            camera.position.lerp(new THREE.Vector3(camX, 40, camZ), 0.02);
-            camera.lookAt(0, 15, 0);
+            const camX = Math.sin(game.time * 0.1) * 80;
+            const camZ = 60 + Math.cos(game.time * 0.1) * 30;
+            camera.position.lerp(new THREE.Vector3(camX, 25, camZ), 0.02);
+            camera.lookAt(0, 10, 0);
+        } else if (game.controlMode === 'freecam') {
+            if (game.keys['ArrowUp'] || game.keys['w']) camera.position.z -= 1.5;
+            if (game.keys['ArrowDown'] || game.keys['s']) camera.position.z += 1.5;
+            if (game.keys['ArrowLeft'] || game.keys['a']) camera.position.x -= 1.5;
+            if (game.keys['ArrowRight'] || game.keys['d']) camera.position.x += 1.5;
+            camera.lookAt(0, 10, 0);
         } else {
             const activeMesh = game.controlMode === 'jack' ? jackMesh : roseMesh;
             const worldPos = new THREE.Vector3();
@@ -156,8 +206,21 @@ function updateGameplay() {
     if (game.keys['1']) { game.controlMode = 'ship'; showMessage("Керування: Корабель"); }
     if (game.keys['2']) { game.controlMode = 'jack'; showMessage("Керування: Джек"); }
     if (game.keys['3']) { game.controlMode = 'rose'; showMessage("Керування: Роуз"); }
+    
+    if (game.keys['p'] || game.keys['P']) {
+        game.keys['p'] = false; game.keys['P'] = false;
+        game.controlMode = 'freecam';
+        showMessage("Режим: Вільна Камера (Літати на стрілочках)");
+    }
+    
+    if (game.keys['t'] || game.keys['T']) {
+        game.keys['t'] = false; game.keys['T'] = false;
+        if (game.icebergMode === 'off') { game.icebergMode = 'normal'; showMessage('Айсберги: Обережно (x1)'); }
+        else if (game.icebergMode === 'normal') { game.icebergMode = 'double'; showMessage('Айсберги: Збільшено (x2)'); }
+        else { game.icebergMode = 'off'; showMessage('Айсберги: Вимкнено'); }
+    }
 
-    document.getElementById('mode-indicator').textContent = game.controlMode === 'ship' ? 'Корабель' : game.players[game.controlMode].name;
+    document.getElementById('mode-indicator').textContent = game.controlMode === 'ship' ? 'Корабель' : (game.controlMode === 'freecam' ? 'Вільна Камера' : game.players[game.controlMode].name);
 
     if (game.keys['m'] || game.keys['M']) {
         game.keys['m'] = false; 
@@ -165,12 +228,38 @@ function updateGameplay() {
         game.currentRoom = ROOM_ORDER[(idx + 1) % ROOM_ORDER.length];
         showMessage(`Кімната: ${game.currentRoom.toUpperCase()}`);
     }
+    
+    if (game.keys['h'] || game.keys['H']) {
+        game.keys['h'] = false; game.keys['H'] = false;
+        const helpMenu = document.getElementById('help-menu');
+        if (helpMenu) helpMenu.classList.toggle('hidden');
+    }
+    
+    if (game.keys['q'] || game.keys['Q']) {
+        game.keys['q'] = false;
+        if (!isInterior) {
+            game.players[game.controlMode].deckLevel = Math.max(0, (game.players[game.controlMode].deckLevel || 0) - 1);
+            showMessage("Спуск на палубу нижче");
+        }
+    }
+    if (game.keys['e'] || game.keys['E']) {
+        game.keys['e'] = false;
+        if (!isInterior) {
+            game.players[game.controlMode].deckLevel = Math.min(4, (game.players[game.controlMode].deckLevel || 0) + 1);
+            showMessage("Підйом на палубу вище");
+        }
+    }
 
     // Move Logic
     if (game.controlMode === 'ship' && !isInterior) {
         if (game.keys['ArrowUp'] || game.keys['w']) game.ship.speed = Math.min(3, game.ship.speed + 0.02);
         if (game.keys['ArrowDown'] || game.keys['s']) game.ship.speed = Math.max(0.5, game.ship.speed - 0.02);
-    } else if (game.controlMode !== 'ship') {
+        
+        // Allow Ship Steering (A/D)
+        game.ship.zPos = game.ship.zPos || 0;
+        if (game.keys['ArrowLeft'] || game.keys['a']) game.ship.zPos += 0.8; 
+        if (game.keys['ArrowRight'] || game.keys['d']) game.ship.zPos -= 0.8;
+    } else if (game.controlMode === 'jack' || game.controlMode === 'rose') {
         const activeMesh = game.controlMode === 'jack' ? jackMesh : roseMesh;
         activeMesh.userData = activeMesh.userData || { dirX: 0, dirZ: 0 };
         activeMesh.userData.dirX = 0;
@@ -204,19 +293,26 @@ function updateGameplay() {
             }
             if (mesh.parent !== target) { target.add(mesh); }
 
-            mesh.position.x = Math.max(-68, Math.min(mesh.position.x, 68));
-            mesh.position.z = Math.max(-6, Math.min(mesh.position.z, 6));
-            mesh.position.y = 27.35; // Local Y coordinate sitting perfectly flat on physical deck
+            const dLevel = playerState.deckLevel || 0;
+            const bounds = DECK_LEVELS[dLevel];
+
+            mesh.position.x = Math.max(bounds.minX, Math.min(mesh.position.x, bounds.maxX));
+            mesh.position.z = Math.max(-bounds.zMax, Math.min(mesh.position.z, bounds.zMax));
+            mesh.position.y = bounds.y;
+            
             if (mesh.userData && (mesh.userData.dirX !== 0 || mesh.userData.dirZ !== 0)) {
                 mesh.rotation.y = Math.atan2(mesh.userData.dirX, mesh.userData.dirZ);
             }
 
-            // Lifeboat Rescue Jump trigger
-            if (game.phase === 'sinking' && mesh.position.z > 5.5 && Math.abs(mesh.position.x - 10) < 5) {
-                playerState.saved = true;
-                rescueBoat.add(mesh);
-                mesh.position.set(key === 'jack' ? -2 : 2, 2.5, 0); // Position inside boat
-                showMessage(`Ура! ${playerState.name} у безпеці в шлюпці!`);
+            // Lifeboat Rescue Jump trigger (Jump off when at edge Z of Main or A deck)
+            if (game.phase === 'sinking') {
+                rescueBoat.visible = true;
+                if (mesh.position.z > bounds.zMax - 1 && Math.abs(mesh.position.x - 10) < 5) {
+                    playerState.saved = true;
+                    rescueBoat.add(mesh);
+                    mesh.position.set(key === 'jack' ? -2 : 2, 0.5, 0); // Position inside boat
+                    showMessage(`Ура! ${playerState.name} у безпеці в шлюпці!`);
+                }
             }
         }
     });

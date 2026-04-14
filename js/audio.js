@@ -21,7 +21,7 @@ export function initAudio() {
         filter.frequency.value = 100; // Low rumble
 
         const gainNode = ctx.createGain();
-        gainNode.gain.value = 0.2; // SIGNIFICANTLY QUIETER engine sound (was 0.5)
+        gainNode.gain.value = 0.45; // INCREASED engine sound 
 
         whiteNoise.connect(filter);
         filter.connect(gainNode);

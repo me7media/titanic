@@ -3,6 +3,8 @@ import { game } from './state.js';
 let oceanMesh;
 export const icebergs = [];
 let sceneRef;
+const wakes = [];
+const wakeGeo = new THREE.PlaneGeometry(15, 15);
 
 let foamGeo, foamLives;
 
@@ -59,7 +61,11 @@ function spawnIceberg() {
         color: 0xaaddff, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.9
     });
     const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(300, -5, (Math.random() - 0.5) * 150);
+    
+    // 20% chance to specifically target the ship's center line
+    const zPos = Math.random() > 0.8 ? 0 : (Math.random() - 0.5) * 150;
+    mesh.position.set(400, -5, zPos);
+    
     for(let i=0; i<3; i++) {
         const chunk = new THREE.Mesh(new THREE.DodecahedronGeometry(5 + Math.random() * 10), mat);
         chunk.position.set((Math.random()-0.5)*15, (Math.random()-0.5)*10, (Math.random()-0.5)*15);
@@ -88,6 +94,38 @@ export function updateEnvironment(time) {
     oceanMesh.geometry.attributes.position.needsUpdate = true;
 
     oceanMesh.visible = game.currentRoom === 'deck';
+
+    // Icebergs logic based on T toggle pattern (Spawns after 3 minutes)
+    let spawnChance = game.icebergMode === 'double' ? 0.01 : 0.005;
+    if (time > 180 && game.icebergMode !== 'off' && Math.random() < spawnChance && game.phase === 'sailing') {
+        spawnIceberg();
+    }
+    
+    // Ship Wake Trail Logic
+    if (game.phase === 'sailing' && game.ship && game.ship.speed > 0.5) {
+        if (Math.random() < 0.4) {
+            const wakeMat = new THREE.MeshBasicMaterial({color: 0xffffff, transparent: true, opacity: 0.6});
+            const wake = new THREE.Mesh(wakeGeo, wakeMat);
+            wake.rotation.x = -Math.PI / 2;
+            const zSpread = (Math.random() - 0.5) * 30; // Spread across stern width
+            wake.position.set(-135, 0.5, zSpread); 
+            sceneRef.add(wake);
+            wakes.push(wake);
+        }
+    }
+    
+    // Update Wakes
+    for (let i = wakes.length - 1; i >= 0; i--) {
+        let w = wakes[i];
+        w.position.x -= game.ship.speed * 2.5; 
+        w.scale.set(w.scale.x + 0.05, w.scale.y + 0.05, 1);
+        w.material.opacity -= 0.01;
+        if (w.material.opacity <= 0) {
+            sceneRef.remove(w);
+            w.material.dispose();
+            wakes.splice(i, 1);
+        }
+    }
 
     if (!game.running || game.phase !== 'sailing') return;
 
@@ -130,11 +168,11 @@ export function updateEnvironment(time) {
         const ice = icebergs[i];
         ice.position.x -= game.ship.speed * 0.4;
         
-        // Very simple arcade hit-box: Ship is located at X ~ 60 to -60, Z depends on game.ship.zPos
-        // Iceberg is at ice.position
-        if (game.phase === 'sailing' && ice.position.x < 75 && ice.position.x > 30) {
-            // Check lateral collision (Z axis bounds)
-            if (Math.abs(ice.position.z - game.ship.zPos) < 22) {
+        // Very simple arcade hit-box suited for the newly scaled 280-length ship
+        if (game.phase === 'sailing' && ice.position.x < 150 && ice.position.x > 80) {
+            // Check lateral collision (Z axis bounds ~25 radius)
+            let shipZ = game.ship && game.ship.zPos ? game.ship.zPos : 0;
+            if (Math.abs(ice.position.z - shipZ) < 30) {
                 game.phase = 'sinking';
                 game.ship.sinkStartTime = game.time;
                 console.warn('HIT ICEBERG!');
