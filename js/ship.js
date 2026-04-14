@@ -1,11 +1,15 @@
 import { game } from './state.js';
 
-export let shipGroup, bowGroup, sternGroup;
+export let shipGroup, bowGroup, sternGroup, unifiedHullsGroup;
+export const splitHulls = [];
 
 export function initShip(scene) {
     shipGroup = new THREE.Group();
     bowGroup = new THREE.Group();
     sternGroup = new THREE.Group();
+    unifiedHullsGroup = new THREE.Group();
+    
+    shipGroup.add(unifiedHullsGroup);
     shipGroup.add(bowGroup);
     shipGroup.add(sternGroup);
 
@@ -29,7 +33,8 @@ export function initShip(scene) {
         return z;
     }
 
-    function createHullMesh(width, length, topY, bottomY, mat, isStern) {
+    // Generator for split halves (invisible until broken)
+    function createSplitHull(width, length, topY, bottomY, mat, isStern) {
         const height = topY - bottomY;
         const halfLen = length / 2;
         const geo = new THREE.BoxGeometry(halfLen, height, width, 32, 8, 16);
@@ -49,21 +54,42 @@ export function initShip(scene) {
         const mesh = new THREE.Mesh(geo, mat);
         mesh.position.set(offsetX, (topY + bottomY) / 2, 0);
         mesh.castShadow = true; mesh.receiveShadow = true;
+        mesh.visible = false;
+        splitHulls.push(mesh);
         (isStern ? sternGroup : bowGroup).add(mesh);
     }
+    
+    // Generator for unified (seamless) initial hulls
+    function createUnifiedHull(width, length, topY, bottomY, mat) {
+        const height = topY - bottomY;
+        const geo = new THREE.BoxGeometry(length, height, width, 64, 8, 16);
+        const pos = geo.attributes.position;
+        for (let i = 0; i < pos.count; i++) {
+            let x = pos.getX(i);
+            let y = pos.getY(i) + (topY + bottomY) / 2;
+            let z = pos.getZ(i);
+            const actualZ = getHullZ(x, y, (z > 0 ? width/2 : -width/2));
+            pos.setXYZ(i, x, y - (topY + bottomY) / 2, actualZ);
+        }
+        geo.computeVertexNormals();
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.y = (topY + bottomY) / 2;
+        mesh.castShadow = true; mesh.receiveShadow = true;
+        unifiedHullsGroup.add(mesh);
+    }
 
-    // Main Hull & Bottom
-    createHullMesh(15, 140, 25, 10, hullMat, false);
-    createHullMesh(15, 140, 25, 10, hullMat, true);
-    createHullMesh(14.8, 138, 10, -10, bottomMat, false);
-    createHullMesh(14.8, 138, 10, -10, bottomMat, true);
+    // Create both sets
+    createSplitHull(15, 140, 25, 10, hullMat, false);
+    createSplitHull(15, 140, 25, 10, hullMat, true);
+    createSplitHull(14.8, 138, 10, -10, bottomMat, false);
+    createSplitHull(14.8, 138, 10, -10, bottomMat, true);
+    
+    createUnifiedHull(15, 140, 25, 10, hullMat);
+    createUnifiedHull(14.8, 138, 10, -10, bottomMat);
 
     // Decks
-    function createDeckMesh(length, isStern) {
-        const halfLen = length / 2;
-        const deckGeo = new THREE.PlaneGeometry(halfLen, 15, 32, 16);
-        const pos = deckGeo.attributes.position;
-        const offsetX = isStern ? -halfLen / 2 : halfLen / 2;
+    function generateDeckVerts(geo, length, offsetX) {
+        const pos = geo.attributes.position;
         for(let i=0; i<pos.count; i++) {
             let localX = pos.getX(i);
             let globalX = localX + offsetX;
@@ -71,15 +97,19 @@ export function initShip(scene) {
             const actualZ = getHullZ(globalX, 25, z);
             pos.setY(i, actualZ);
         }
-        deckGeo.computeVertexNormals();
-        const mesh = new THREE.Mesh(deckGeo, woodMat);
-        mesh.rotation.x = -Math.PI / 2;
-        mesh.position.set(offsetX, 25.1, 0);
-        mesh.receiveShadow = true;
-        (isStern ? sternGroup : bowGroup).add(mesh);
+        geo.computeVertexNormals();
     }
-    createDeckMesh(140, false);
-    createDeckMesh(140, true);
+
+    // Split decks
+    const splitDeck1 = new THREE.PlaneGeometry(70, 15, 32, 16); generateDeckVerts(splitDeck1, 140, 35);
+    const m1 = new THREE.Mesh(splitDeck1, woodMat); m1.rotation.x = -Math.PI / 2; m1.position.set(35, 25.1, 0); m1.receiveShadow = true; m1.visible = false; splitHulls.push(m1); bowGroup.add(m1);
+    
+    const splitDeck2 = new THREE.PlaneGeometry(70, 15, 32, 16); generateDeckVerts(splitDeck2, 140, -35);
+    const m2 = new THREE.Mesh(splitDeck2, woodMat); m2.rotation.x = -Math.PI / 2; m2.position.set(-35, 25.1, 0); m2.receiveShadow = true; m2.visible = false; splitHulls.push(m2); sternGroup.add(m2);
+
+    // Unified deck
+    const unifiedDeck = new THREE.PlaneGeometry(140, 15, 64, 16); generateDeckVerts(unifiedDeck, 140, 0);
+    const m3 = new THREE.Mesh(unifiedDeck, woodMat); m3.rotation.x = -Math.PI / 2; m3.position.set(0, 25.1, 0); m3.receiveShadow = true; unifiedHullsGroup.add(m3);
 
     // Superstructures
     const buildTier = (minX, maxX, baseH, depth, yLevel) => {
@@ -179,7 +209,7 @@ export function initShip(scene) {
         }
     }
 
-    // Propellers
+    // Propellers (Tucked mostly under the center stern)
     function buildPropeller(x, y, z, scale) {
         const p = new THREE.Group();
         const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 2), propMat);
@@ -197,8 +227,8 @@ export function initShip(scene) {
         sternGroup.add(p);
     }
     buildPropeller(-68, -3, 0, 1.2); 
-    buildPropeller(-63, -1, 5, 0.9); 
-    buildPropeller(-63, -1, -5, 0.9);
+    buildPropeller(-64, -1, 3.5, 0.8); // Much closer to hull center
+    buildPropeller(-64, -1, -3.5, 0.8); // Much closer to hull center
 
     scene.add(shipGroup);
     return shipGroup;
@@ -207,11 +237,6 @@ export function initShip(scene) {
 export function updateShip(group) {
     if (!group) return;
     group.visible = game.currentRoom === 'deck';
-    
-    // Apply lateral steering from the user input
-    group.position.z = game.ship.zPos;
-    // Visually lean into turns
-    group.rotation.x = -game.ship.zPos * 0.002; 
     
     if (game.phase === 'sinking') {
         const timeSinceHit = game.time - game.ship.sinkStartTime;
@@ -226,18 +251,26 @@ export function updateShip(group) {
         // The Break Event (~60 seconds in)
         if (timeSinceHit > 60 && !game.ship.isBroken) {
             game.ship.isBroken = true;
-            // Provide dramatic visual snap
-            console.warn("SHIP_BROKEN_IN_HALF");
+            unifiedHullsGroup.visible = false;
+            splitHulls.forEach(m => m.visible = true);
+            console.warn("SHIP_BROKEN_IN_HALF_DYNAMICALLY");
         }
 
         if (game.ship.isBroken) {
-            // Bow group plunges down violently
+            // Bow group plunges down wildly
             bowGroup.rotation.z = Math.min(1.5, bowGroup.rotation.z + 0.02);
             bowGroup.position.y -= 0.5;
             
-            // Stern group snaps back level momentarily, then plummets
-            sternGroup.rotation.z = Math.max(-0.5, sternGroup.rotation.z - 0.01);
-            sternGroup.position.y -= 0.1;
+            // Stern group raises its ass (propellers) high into the air and bobs like a cork
+            game.ship.sternTilt = game.ship.sternTilt || 0;
+            game.ship.sternTilt += (1.0 - game.ship.sternTilt) * 0.005; 
+            sternGroup.rotation.z = game.ship.sternTilt;
+
+            game.ship.sternY = game.ship.sternY === undefined ? 0 : game.ship.sternY;
+            game.ship.sternY -= 0.02; // Very slow sink
+            
+            // Bobbing formula 
+            sternGroup.position.y = game.ship.sternY + (Math.sin(timeSinceHit * 2) * 0.5); 
         }
     }
 }

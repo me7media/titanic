@@ -4,10 +4,10 @@ import { initEnvironment, updateEnvironment } from './environment.js';
 import { initShip, updateShip } from './ship.js';
 import { initCharacters } from './characters.js';
 import { initInteriors } from './interiors.js';
+import { bowGroup, shipGroup, sternGroup } from './ship.js';
 
 let scene, camera, renderer;
-let shipGroup;
-let jackMesh, roseMesh;
+let jackMesh, roseMesh, rescueBoat;
 
 // Global lights that should be dimmed indoors
 let ambientLight, hemiLight, moonLight;
@@ -62,12 +62,21 @@ function init() {
 
     // Init Modules
     initEnvironment(scene);
-    shipGroup = initShip(scene);
+    initShip(scene);
     initInteriors(scene);
     
     const chars = initCharacters(scene);
     jackMesh = chars.jackMesh;
     roseMesh = chars.roseMesh;
+
+    // Rescue Lifeboat in the water
+    rescueBoat = new THREE.Group();
+    const hullMat = new THREE.MeshStandardMaterial({color: 0xdddddd});
+    const woodMat = new THREE.MeshStandardMaterial({color: 0x5a3311});
+    const b1 = new THREE.Mesh(new THREE.BoxGeometry(12, 2, 4), hullMat); b1.position.y = 1; rescueBoat.add(b1);
+    const b2 = new THREE.Mesh(new THREE.BoxGeometry(10, 0.5, 3), woodMat); b2.position.y = 2; rescueBoat.add(b2);
+    rescueBoat.position.set(10, 0, 15);
+    scene.add(rescueBoat);
 
     window.addEventListener('resize', onWindowResize);
     window.addEventListener('keydown', e => game.keys[e.key] = true);
@@ -161,11 +170,6 @@ function updateGameplay() {
     if (game.controlMode === 'ship' && !isInterior) {
         if (game.keys['ArrowUp'] || game.keys['w']) game.ship.speed = Math.min(3, game.ship.speed + 0.02);
         if (game.keys['ArrowDown'] || game.keys['s']) game.ship.speed = Math.max(0.5, game.ship.speed - 0.02);
-        
-        // Lateral Steering
-        if ((game.keys['ArrowLeft'] || game.keys['a']) && game.phase === 'sailing') game.ship.zPos -= 0.5;
-        if ((game.keys['ArrowRight'] || game.keys['d']) && game.phase === 'sailing') game.ship.zPos += 0.5;
-        
     } else if (game.controlMode !== 'ship') {
         const activeMesh = game.controlMode === 'jack' ? jackMesh : roseMesh;
         activeMesh.userData = activeMesh.userData || { dirX: 0, dirZ: 0 };
@@ -176,32 +180,46 @@ function updateGameplay() {
         if (game.keys['ArrowRight'] || game.keys['d']) { activeMesh.position.x += 0.4; activeMesh.userData.dirX = 1; }
         if (game.keys['ArrowUp'] || game.keys['w']) { activeMesh.position.z -= 0.4; activeMesh.userData.dirZ = -1; }
         if (game.keys['ArrowDown'] || game.keys['s']) { activeMesh.position.z += 0.4; activeMesh.userData.dirZ = 1; }
+    }
+
+    // Physics mapping for both characters
+    ['jack', 'rose'].forEach(key => {
+        const mesh = key === 'jack' ? jackMesh : roseMesh;
+        const playerState = game.players[key];
+        if (playerState.saved) return; // Keep them sitting in the lifeboat
 
         if (isInterior) {
-            // Expanded interior walking bounds
-            activeMesh.position.x = Math.max(-28, Math.min(activeMesh.position.x, 28));
-            activeMesh.position.z = Math.max(-18, Math.min(activeMesh.position.z, 18));
-            activeMesh.position.y = yOffset + 2.25;
-            
-            // Auto-rotate mesh towards movement direction
-            if (activeMesh.userData.dirX !== 0 || activeMesh.userData.dirZ !== 0) {
-                const angle = Math.atan2(activeMesh.userData.dirX, activeMesh.userData.dirZ);
-                activeMesh.rotation.y = angle;
+            if (mesh.parent !== scene) { scene.add(mesh); }
+            mesh.position.x = Math.max(-28, Math.min(mesh.position.x, 28));
+            mesh.position.z = Math.max(-18, Math.min(mesh.position.z, 18));
+            mesh.position.y = yOffset + 2.25;
+            if (mesh.userData && (mesh.userData.dirX !== 0 || mesh.userData.dirZ !== 0)) {
+                mesh.rotation.y = Math.atan2(mesh.userData.dirX, mesh.userData.dirZ);
             }
         } else {
-            activeMesh.position.x = Math.max(-28, Math.min(activeMesh.position.x, 28));
-            activeMesh.position.z = Math.max(-5, Math.min(activeMesh.position.z, 5));
-            activeMesh.position.y = 38 + game.ship.sinkY + (activeMesh.position.x * Math.sin(-shipGroup.rotation.z));
-        }
-    }
+            // Outdoor Deck Rules: Characters become physical children of the tumbling ship parts
+            let target = shipGroup;
+            if (game.ship.isBroken) {
+                target = mesh.position.x < 0 ? sternGroup : bowGroup;
+            }
+            if (mesh.parent !== target) { target.add(mesh); }
 
-    // Adjust inactive player
-    const otherMesh = game.controlMode === 'jack' ? roseMesh : jackMesh;
-    if (isInterior && otherMesh.position.y > -50) { 
-        otherMesh.position.y = yOffset + 2.25; 
-    } else if (!isInterior && otherMesh.position.y < -50) {
-        otherMesh.position.y = 38 + game.ship.sinkY + (otherMesh.position.x * Math.sin(-shipGroup.rotation.z));
-    }
+            mesh.position.x = Math.max(-68, Math.min(mesh.position.x, 68));
+            mesh.position.z = Math.max(-6, Math.min(mesh.position.z, 6));
+            mesh.position.y = 27.35; // Local Y coordinate sitting perfectly flat on physical deck
+            if (mesh.userData && (mesh.userData.dirX !== 0 || mesh.userData.dirZ !== 0)) {
+                mesh.rotation.y = Math.atan2(mesh.userData.dirX, mesh.userData.dirZ);
+            }
+
+            // Lifeboat Rescue Jump trigger
+            if (game.phase === 'sinking' && mesh.position.z > 5.5 && Math.abs(mesh.position.x - 10) < 5) {
+                playerState.saved = true;
+                rescueBoat.add(mesh);
+                mesh.position.set(key === 'jack' ? -2 : 2, 2.5, 0); // Position inside boat
+                showMessage(`Ура! ${playerState.name} у безпеці в шлюпці!`);
+            }
+        }
+    });
 }
 
 function gameLoop() {
