@@ -1,14 +1,15 @@
 import { ROOM_Y_POSITIONS } from './state.js';
 
 export function initInteriors(scene) {
-    const rooms = ['dining', 'cabin', 'lounge', 'corridor'];
+    // Rooms are placed deep underground to avoid intersecting with Ship/Ocean
+    const rooms = ['dining', 'cabin', 'lounge'];
     
     // Materials
-    const woodWall = new THREE.MeshStandardMaterial({ color: 0x4a2a11, side: THREE.BackSide, roughness: 0.9 });
-    const whiteWall = new THREE.MeshStandardMaterial({ color: 0xe0e0e0, side: THREE.BackSide, roughness: 1.0 });
-    const redCarpet = new THREE.MeshStandardMaterial({ color: 0x6b1414, roughness: 1.0 });
+    const woodWall = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, side: THREE.DoubleSide, roughness: 0.8 }); // Brightened mahogany
+    const whiteWall = new THREE.MeshStandardMaterial({ color: 0xe0e0e0, side: THREE.DoubleSide, roughness: 1.0 });
+    const redCarpet = new THREE.MeshStandardMaterial({ color: 0x8b0000, roughness: 1.0 });
     const richCarpet = new THREE.MeshStandardMaterial({ color: 0x223366, roughness: 0.9 }); // Lounge uses blue
-    const woodMat = new THREE.MeshStandardMaterial({ color: 0x3d2314, roughness: 0.8 });
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0x5c3a21, roughness: 0.8 });
     const whiteCloth = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
     
     rooms.forEach(room => {
@@ -20,25 +21,41 @@ export function initInteriors(scene) {
         const wMat = room === 'corridor' ? whiteWall : woodWall;
         const fMat = room === 'lounge' ? richCarpet : redCarpet;
 
-        const roomBox = new THREE.Mesh(new THREE.BoxGeometry(40, 15, 30), wMat);
-        roomBox.position.set(0, 7.5, 0);
+        // Expanded Room bounds (60x20x40)
+        const roomBox = new THREE.Mesh(new THREE.BoxGeometry(60, 20, 40), wMat);
+        roomBox.position.set(0, yBase + 10, 0);
         roomBox.receiveShadow = true;
         group.add(roomBox);
 
-        const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 30), fMat);
+        // Fix Z-fighting: Raise floor slightly above the roomBox absolute bottom
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(59.8, 39.8), fMat);
         floor.rotation.x = -Math.PI / 2;
+        floor.position.set(0, yBase + 0.05, 0); // Prevents flickering
         floor.receiveShadow = true;
         group.add(floor);
+        
+        // Rich ceiling detail
+        const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(58, 38), new THREE.MeshStandardMaterial({color: 0xfffbee, roughness: 0.8}));
+        ceiling.rotation.x = Math.PI / 2;
+        ceiling.position.set(0, yBase + 19.9, 0);
+        group.add(ceiling);
+        
+        // Ambient Fill Light for interior
+        group.add(new THREE.AmbientLight(0xffeedd, 0.4));
 
         // Furnish based on room type
         switch(room) {
             case 'dining':
+                buildPanelling(group, woodMat);
                 buildDining(group, woodMat, whiteCloth);
                 break;
             case 'cabin':
+                buildPanelling(group, woodMat);
                 buildCabin(group, woodMat, whiteCloth);
                 break;
             case 'lounge':
+                buildPanelling(group, woodMat);
+                buildGrandStaircase(group, woodMat, redCarpet);
                 buildLounge(group, woodMat);
                 break;
             case 'corridor':
@@ -48,6 +65,71 @@ export function initInteriors(scene) {
 
         scene.add(group);
     });
+}
+
+// ==========================================
+// PROCEDURAL ARCHITECTURE BUILDERS
+// ==========================================
+
+function buildPanelling(group, woodMat) {
+    // Add elaborate vertical mahogany pillars to the walls
+    const pillarGeo = new THREE.BoxGeometry(0.6, 15, 0.6);
+    for(let x=-18; x<=18; x+=6) {
+        const p1 = new THREE.Mesh(pillarGeo, woodMat);
+        p1.position.set(x, 7.5, -14.8); group.add(p1);
+        const p2 = new THREE.Mesh(pillarGeo, woodMat);
+        p2.position.set(x, 7.5, 14.8); group.add(p2);
+    }
+}
+
+function buildGrandStaircase(group, woodMat, carpetMat) {
+    const stairQ = new THREE.Group();
+    // Build iconic majestic staircase (Corrected direction: ascends backwards towards -Z)
+    for(let i=0; i<16; i++) {
+        // Wood Base
+        const step = new THREE.Mesh(new THREE.BoxGeometry(14, 0.6, 1.0), woodMat);
+        step.position.set(0, i * 0.6 + 0.3, -2 - i * 1.0);
+        stairQ.add(step);
+        // Red Carpet overlay
+        const carpet = new THREE.Mesh(new THREE.BoxGeometry(8, 0.65, 1.02), carpetMat);
+        carpet.position.set(0, i * 0.6 + 0.3, -2 - i * 1.0);
+        stairQ.add(carpet);
+    }
+    // Wooden Railings
+    const railingGeo = new THREE.BoxGeometry(0.3, 3.0, 1.0);
+    for(let i=0; i<16; i++) {
+        const railL = new THREE.Mesh(railingGeo, woodMat);
+        railL.position.set(-6.8, i * 0.6 + 2.0, -2 - i * 1.0);
+        stairQ.add(railL);
+        const railR = new THREE.Mesh(railingGeo, woodMat);
+        railR.position.set(6.8, i * 0.6 + 2.0, -2 - i * 1.0);
+        stairQ.add(railR);
+    }
+    // Wall clock carved panel at the landing
+    const clockPanel = new THREE.Mesh(new THREE.BoxGeometry(8, 10, 0.3), woodMat);
+    clockPanel.position.set(0, 14, -18.5);
+    stairQ.add(clockPanel);
+    const clock = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 0.4, 16), new THREE.MeshStandardMaterial({color: 0xffffff, emissive: 0x444433}));
+    clock.rotation.x = Math.PI / 2;
+    clock.position.set(0, 15, -18.3);
+    stairQ.add(clock);
+
+    group.add(stairQ);
+}
+
+function buildArmchair(woodMat, fabricMat) {
+    const chair = new THREE.Group();
+    const base = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.5, 1.5), woodMat);
+    base.position.y = 0.25; chair.add(base);
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.4, 1.4), fabricMat);
+    seat.position.y = 0.7; chair.add(seat);
+    const back = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.5, 0.4), fabricMat);
+    back.position.set(0, 1.4, -0.6); chair.add(back);
+    // Arms
+    const armGeo = new THREE.BoxGeometry(0.3, 0.8, 1.5);
+    const armL = new THREE.Mesh(armGeo, woodMat); armL.position.set(-0.7, 1.1, 0); chair.add(armL);
+    const armR = new THREE.Mesh(armGeo, woodMat); armR.position.set(0.7, 1.1, 0); chair.add(armR);
+    return chair;
 }
 
 // FURNITURE BUILDERS
@@ -114,26 +196,35 @@ function buildCabin(group, woodMat, clothMat) {
     group.add(pLight);
     
     // Main soft light
-    group.add(new THREE.PointLight(0xddddff, 0.5, 40).position.set(0, 10, 0));
+    const softLight = new THREE.PointLight(0xddddff, 0.5, 40);
+    softLight.position.set(0, 10, 0);
+    group.add(softLight);
 }
 
 function buildLounge(group, woodMat) {
-    // Velvet Couches around a fireplace
     const couchMat = new THREE.MeshStandardMaterial({color: 0x226633, roughness: 0.9}); // Green velvet
-    const couchGeo = new THREE.BoxGeometry(6, 1.5, 2);
-    const backGeo = new THREE.BoxGeometry(6, 2, 0.5);
+    const fancyMat = new THREE.MeshStandardMaterial({color: 0x5a1b1b, roughness: 0.8}); // Rich red armchair fabric
+    
+    // Add multiple richly detailed armchairs
+    const chair1 = buildArmchair(woodMat, fancyMat);
+    chair1.position.set(-5, 0.05, 5); chair1.rotation.y = Math.PI / 4; group.add(chair1);
+    
+    const chair2 = buildArmchair(woodMat, fancyMat);
+    chair2.position.set(5, 0.05, 5); chair2.rotation.y = -Math.PI / 4; group.add(chair2);
 
-    [-1, 1].forEach(dir => {
-        const c = new THREE.Mesh(couchGeo, couchMat);
-        c.position.set(0, 0.75, dir * 5);
-        group.add(c);
-        
-        const b = new THREE.Mesh(backGeo, couchMat);
-        b.position.set(0, 2.5, dir * 6);
-        group.add(b);
-    });
+    const chair3 = buildArmchair(woodMat, fancyMat);
+    chair3.position.set(-5, 0.05, -5); chair3.rotation.y = (Math.PI / 4) * 3; group.add(chair3);
 
-    // Fireplace logic (Using simple glowing light to avoid particle code complexity)
+    const chair4 = buildArmchair(woodMat, fancyMat);
+    chair4.position.set(5, 0.05, -5); chair4.rotation.y = (-Math.PI / 4) * 3; group.add(chair4);
+
+    // Central elegant round table
+    const tableTop = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 0.2, 16), woodMat);
+    tableTop.position.set(0, 1.5, 0); group.add(tableTop);
+    const tableLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.5, 1.5, 8), woodMat);
+    tableLeg.position.set(0, 0.75, 0); group.add(tableLeg);
+
+    // Fireplace Logic at the side wall
     const fireGeo = new THREE.BoxGeometry(8, 6, 2);
     const fireplace = new THREE.Mesh(fireGeo, new THREE.MeshStandardMaterial({color: 0x222222}));
     fireplace.position.set(-19, 3, 0); // Side wall
@@ -143,9 +234,14 @@ function buildLounge(group, woodMat) {
     fire.position.set(-18.5, 1.5, 0);
     group.add(fire);
 
-    const pLight = new THREE.PointLight(0xff5500, 2, 30);
+    const pLight = new THREE.PointLight(0xff5500, 2.5, 40);
     pLight.position.set(-15, 3, 0);
     group.add(pLight);
+
+    // Grand Chandelier
+    const chandelier = new THREE.PointLight(0xffddaa, 2.0, 50);
+    chandelier.position.set(0, 12, 0);
+    group.add(chandelier);
 }
 
 function buildCorridor(group, woodMat) {
