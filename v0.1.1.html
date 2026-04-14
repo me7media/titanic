@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Титанік: Джек і Роуз</title>
+    <style>
+        *
+        {
+            box-sizing: border-box;
+        }
+
+        body
+        {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background: #0b1f33;
+        }
+
+        canvas
+        {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #ui
+        {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            width: 380px;
+            background: rgba(255, 255, 255, 0.94);
+            border-radius: 14px;
+            padding: 12px 14px;
+            z-index: 10;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+        }
+
+        #ui h1
+        {
+            margin: 0 0 8px 0;
+            font-size: 22px;
+            color: #17324d;
+        }
+
+        #ui .small
+        {
+            font-size: 13px;
+            line-height: 1.4;
+            color: #333;
+        }
+
+        #status
+        {
+            margin-top: 8px;
+            font-size: 13px;
+        }
+
+        #message
+        {
+            margin-top: 8px;
+            min-height: 20px;
+            font-weight: bold;
+            color: #0d5c63;
+        }
+
+        .bar-wrap
+        {
+            margin: 6px 0;
+        }
+
+        .label
+        {
+            font-size: 12px;
+            margin-bottom: 2px;
+        }
+
+        .bar
+        {
+            width: 100%;
+            height: 12px;
+            border-radius: 8px;
+            background: #ddd;
+            overflow: hidden;
+        }
+
+        .fill
+        {
+            height: 100%;
+            border-radius: 8px;
+        }
+
+        #help
+        {
+            margin-top: 10px;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+<div id="ui">
+    <h1>Титанік: Джек і Роуз</h1>
+    <div class="small">
+        Керуй Титаніком, Джеком та Роуз. Дбай про потреби у красивих кімнатах корабля та врятуйся після аварії.
+    </div>
+    <div id="status"></div>
+    <div id="message"></div>
+    <div id="help">
+        <b>Керування:</b><br>
+        1 — корабель<br>
+        2 — Джек<br>
+        3 — Роуз<br>
+        M — змінити кімнату<br>
+        Стрілки — рух<br>
+        E — взаємодія<br>
+        R — перезапуск
+    </div>
+</div>
+
+<canvas id="game"></canvas>
+
+<script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+
+    const statusEl = document.getElementById("status");
+    const messageEl = document.getElementById("message");
+
+    function resizeCanvas()
+    {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+
+    const keys = {};
+
+    const ROOM_ORDER = ["deck", "dining", "cabin", "lounge", "corridor"];
+
+    function setMessage(text)
+    {
+        game.messageText = text;
+        game.messageTimer = 180;
+        messageEl.textContent = text;
+    }
+
+    function clamp(value, min, max)
+    {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    function rectsOverlap(a, b)
+    {
+        return (
+            a.x < b.x + b.w &&
+            a.x + a.w > b.x &&
+            a.y < b.y + b.h &&
+            a.y + a.h > b.y
+        );
+    }
+
+    function distance(a, b)
+    {
+        const dx = a.x - b.x;
+        const dy = a.y - b.y;
+
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    function createPlayer(name, color, x, y)
+    {
+        return {
+            name: name,
+            color: color,
+            x: x,
+            y: y,
+            r: 16,
+            speed: 2.6,
+            hunger: 100,
+            energy: 100,
+            warmth: 100,
+            mood: 100,
+            alive: true,
+            escaped: false
+        };
+    }
+
+    function getRoomStations()
+    {
+        return {
+            dining: {
+                type: "food",
+                x: canvas.width * 0.56,
+                y: canvas.height * 0.56,
+                w: 120,
+                h: 70,
+                label: "Стіл з їжею"
+            },
+            cabin: {
+                type: "sleep",
+                x: canvas.width * 0.60,
+                y: canvas.height * 0.56,
+                w: 120,
+                h: 70,
+                label: "Ліжко"
+            },
+            lounge: {
+                type: "warmth",
+                x: canvas.width * 0.57,
+                y: canvas.height * 0.54,
+                w: 140,
+                h: 90,
+                label: "Камін"
+            }
+        };
+    }
+
+    function resetGame()
+    {
+        game = {
+            phase: "sailing",
+            controlMode: "ship",
+            currentRoom: "deck",
+            score: 0,
+            waterLevel: 0,
+            messageText: "",
+            messageTimer: 0,
+            dayValue: 0,
+            ship: {
+                x: canvas.width * 0.14,
+                y: canvas.height * 0.56,
+                w: 430,
+                h: 120,
+                speed: 2.0
+            },
+            players: [
+                createPlayer("Джек", "#3da5ff", canvas.width * 0.26, canvas.height * 0.52),
+                createPlayer("Роуз", "#ff7da8", canvas.width * 0.33, canvas.height * 0.52)
+            ],
+            lifeboat: {
+                x: canvas.width * 0.68,
+                y: canvas.height * 0.69,
+                w: 140,
+                h: 46
+            },
+            icebergs: [],
+            stars: [],
+            stations: getRoomStations()
+        };
+
+        for (let i = 0; i < 7; i++)
+        {
+            game.icebergs.push({
+                x: canvas.width + 180 + i * 230 + Math.random() * 90,
+                y: 120 + Math.random() * (canvas.height - 280),
+                r: 30 + Math.random() * 26
+            });
+        }
+
+        for (let i = 0; i < 90; i++)
+        {
+            game.stars.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height * 0.45,
+                s: Math.random() * 2 + 1
+            });
+        }
+
+        setMessage("Подорож почалась. Джек і Роуз на Титаніку.");
+    }
+
+    let game;
+    resetGame();
+
+    window.addEventListener("keydown", function(event)
+    {
+        keys[event.key] = true;
+
+        if (event.key === "1")
+        {
+            game.controlMode = "ship";
+            setMessage("Ти керуєш Титаніком.");
+        }
+
+        if (event.key === "2")
+        {
+            game.controlMode = "player1";
+            setMessage("Ти граєш за Джека.");
+        }
+
+        if (event.key === "3")
+        {
+            game.controlMode = "player2";
+            setMessage("Ти граєш за Роуз.");
+        }
+
+        if (event.key === "m" || event.key === "M")
+        {
+            cycleRoom();
+        }
+
+        if (event.key === "r" || event.key === "R")
+        {
+            resetGame();
+        }
+    });
+
+    window.addEventListener("keyup", function(event)
+    {
+        keys[event.key] = false;
+    });
+
+    function cycleRoom()
+    {
+        if (game.phase !== "sailing")
+        {
+            return;
+        }
+
+        const index = ROOM_ORDER.indexOf(game.currentRoom);
+        game.currentRoom = ROOM_ORDER[(index + 1) % ROOM_ORDER.length];
+        setMessage("Кімната: " + getRoomTitle(game.currentRoom));
+    }
+
+    function getRoomTitle(room)
+    {
+        if (room === "deck")
+        {
+            return "Палуба";
+        }
+
+        if (room === "dining")
+        {
+            return "Їдальня";
+        }
+
+        if (room === "cabin")
+        {
+            return "Каюта";
+        }
+
+        if (room === "lounge")
+        {
+            return "Салон відпочинку";
+        }
+
+        if (room === "corridor")
+        {
+            return "Коридор";
+        }
+
+        return room;
+    }
+
+    function getActivePlayer()
+    {
+        if (game.controlMode === "player1")
+        {
+            return game.players[0];
+        }
+
+        if (game.controlMode === "player2")
+        {
+            return game.players[1];
+        }
+
+        return null;
+    }
+
+    function update()
+    {
+        if (game.messageTimer > 0)
+        {
+            game.messageTimer -= 1;
+        }
+        else
+        {
+            messageEl.textContent = "";
+        }
+
+        game.dayValue += 0.002;
+
+        if (game.phase === "sailing")
+        {
+            updateShip();
+            updateIcebergs();
+        }
+
+        if (game.phase === "sinking")
+        {
+            game.waterLevel += 0.22;
+            game.ship.y += 0.08;
+        }
+
+        updatePlayers();
+        checkGameState();
+    }
+
+    function updateShip()
+    {
+        if (game.controlMode !== "ship")
+        {
+            return;
+        }
+
+        if (keys["ArrowUp"])
+        {
+            game.ship.speed += 0.02;
+        }
+
+        if (keys["ArrowDown"])
+        {
+            game.ship.speed -= 0.02;
+        }
+
+        if (keys["ArrowLeft"])
+        {
+            game.ship.y -= 1.8;
+        }
+
+        if (keys["ArrowRight"])
+        {
+            game.ship.y += 1.8;
+        }
+
+        game.ship.speed = clamp(game.ship.speed, 0.8, 4.8);
+        game.ship.y = clamp(game.ship.y, canvas.height * 0.42, canvas.height * 0.70);
+    }
+
+    function updateIcebergs()
+    {
+        for (const iceberg of game.icebergs)
+        {
+            iceberg.x -= game.ship.speed;
+
+            if (iceberg.x < -100)
+            {
+                iceberg.x = canvas.width + 200 + Math.random() * 180;
+                iceberg.y = 120 + Math.random() * (canvas.height - 280);
+                iceberg.r = 30 + Math.random() * 26;
+                game.score += 1;
+            }
+
+            if (
+                iceberg.x > game.ship.x + 30 &&
+                iceberg.x < game.ship.x + game.ship.w &&
+                iceberg.y > game.ship.y - 10 &&
+                iceberg.y < game.ship.y + game.ship.h + 10
+            )
+            {
+                game.phase = "sinking";
+                setMessage("Титанік врізався в айсберг! Швидко до шлюпки!");
+            }
+        }
+    }
+
+    function updatePlayers()
+    {
+        for (const player of game.players)
+        {
+            if (!player.alive || player.escaped)
+            {
+                continue;
+            }
+
+            player.hunger -= 0.015;
+            player.energy -= 0.011;
+            player.warmth -= game.phase === "sinking" ? 0.032 : 0.008;
+            player.mood -= 0.006;
+
+            player.hunger = clamp(player.hunger, 0, 100);
+            player.energy = clamp(player.energy, 0, 100);
+            player.warmth = clamp(player.warmth, 0, 100);
+            player.mood = clamp(player.mood, 0, 100);
+
+            if (player.hunger <= 0 || player.energy <= 0 || player.warmth <= 0)
+            {
+                player.alive = false;
+                setMessage(player.name + " більше не може рухатися.");
+            }
+        }
+
+        const active = getActivePlayer();
+
+        if (active && active.alive && !active.escaped)
+        {
+            let dx = 0;
+            let dy = 0;
+
+            if (keys["ArrowLeft"])
+            {
+                dx -= active.speed;
+            }
+
+            if (keys["ArrowRight"])
+            {
+                dx += active.speed;
+            }
+
+            if (keys["ArrowUp"])
+            {
+                dy -= active.speed;
+            }
+
+            if (keys["ArrowDown"])
+            {
+                dy += active.speed;
+            }
+
+            active.x += dx;
+            active.y += dy;
+
+            if (game.phase === "sailing")
+            {
+                active.x = clamp(active.x, 80, canvas.width - 80);
+                active.y = clamp(active.y, 110, canvas.height - 80);
+            }
+            else
+            {
+                active.x = clamp(active.x, 0, canvas.width);
+                active.y = clamp(active.y, 0, canvas.height);
+            }
+
+            if (keys["e"] || keys["E"] || keys["у"] || keys["У"])
+            {
+                interact(active);
+            }
+        }
+
+        if (game.phase === "sinking")
+        {
+            for (const player of game.players)
+            {
+                if (!player.alive || player.escaped)
+                {
+                    continue;
+                }
+
+                if (
+                    player.x > game.lifeboat.x &&
+                    player.x < game.lifeboat.x + game.lifeboat.w &&
+                    player.y > game.lifeboat.y &&
+                    player.y < game.lifeboat.y + game.lifeboat.h
+                )
+                {
+                    player.escaped = true;
+                    setMessage(player.name + " врятувався у шлюпці!");
+                }
+
+                if (player.y > canvas.height - game.waterLevel)
+                {
+                    player.warmth -= 0.18;
+                }
+            }
+        }
+    }
+
+    function interact(player)
+    {
+        if (game.phase === "sinking")
+        {
+            if (isNearRect(player, game.lifeboat))
+            {
+                player.escaped = true;
+                setMessage(player.name + " сів у шлюпку!");
+            }
+
+            return;
+        }
+
+        if (game.currentRoom === "dining")
+        {
+            const station = game.stations.dining;
+
+            if (isNearRect(player, station))
+            {
+                player.hunger = clamp(player.hunger + 38, 0, 100);
+                player.mood = clamp(player.mood + 10, 0, 100);
+                setMessage(player.name + " поїв у красивій їдальні.");
+            }
+        }
+
+        if (game.currentRoom === "cabin")
+        {
+            const station = game.stations.cabin;
+
+            if (isNearRect(player, station))
+            {
+                player.energy = clamp(player.energy + 42, 0, 100);
+                setMessage(player.name + " відпочив у каюті.");
+            }
+        }
+
+        if (game.currentRoom === "lounge")
+        {
+            const station = game.stations.lounge;
+
+            if (isNearRect(player, station))
+            {
+                player.warmth = clamp(player.warmth + 35, 0, 100);
+                player.mood = clamp(player.mood + 14, 0, 100);
+                setMessage(player.name + " зігрівся в салоні.");
+            }
+        }
+    }
+
+    function isNearRect(player, rect)
+    {
+        const cx = rect.x + rect.w / 2;
+        const cy = rect.y + rect.h / 2;
+
+        return distance(player, { x: cx, y: cy }) < 70;
+    }
+
+    function checkGameState()
+    {
+        const aliveCount = game.players.filter(function(player)
+        {
+            return player.alive;
+        }).length;
+
+        const escapedCount = game.players.filter(function(player)
+        {
+            return player.escaped;
+        }).length;
+
+        if (aliveCount === 0)
+        {
+            game.phase = "gameover";
+            setMessage("Гру завершено. Спробуй ще раз.");
+        }
+
+        if (escapedCount === game.players.length)
+        {
+            game.phase = "win";
+            setMessage("Перемога! Джек і Роуз врятувалися.");
+        }
+    }
+
+    function draw()
+    {
+        drawBackground();
+
+        if (game.phase === "sailing")
+        {
+            if (game.currentRoom === "deck")
+            {
+                drawSeaScene();
+            }
+            else
+            {
+                drawInteriorRoom(game.currentRoom);
+            }
+        }
+        else
+        {
+            drawSeaScene();
+            drawSinkingWaterOverlay();
+        }
+
+        drawPlayers();
+        drawStatus();
+        drawOverlayText();
+    }
+
+    function drawBackground()
+    {
+        const isNight = Math.sin(game.dayValue) > 0.15;
+
+        ctx.fillStyle = isNight ? "#0e1d35" : "#9fdcff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        if (isNight)
+        {
+            ctx.fillStyle = "#ffffff";
+
+            for (const star of game.stars)
+            {
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.s, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        ctx.fillStyle = isNight ? "#f2f5ff" : "#fff3ab";
+        ctx.beginPath();
+        ctx.arc(canvas.width - 110, 90, 40, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    function drawSeaScene()
+    {
+        const seaTop = canvas.height * 0.34;
+
+        ctx.fillStyle = "#2f9fd8";
+        ctx.fillRect(0, seaTop, canvas.width, canvas.height - seaTop);
+
+        for (let i = 0; i < 18; i++)
+        {
+            const y = seaTop + i * 20;
+            ctx.strokeStyle = "rgba(255,255,255,0.22)";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+
+            for (let x = 0; x <= canvas.width; x += 20)
+            {
+                ctx.lineTo(x, y + Math.sin((x * 0.02) + i) * 5);
+            }
+
+            ctx.stroke();
+        }
+
+        drawIcebergs();
+        drawTitanic();
+        drawLifeboatIfNeeded();
+    }
+
+    function drawTitanic()
+    {
+        const ship = game.ship;
+
+        ctx.save();
+
+        ctx.fillStyle = "#1f2329";
+        ctx.beginPath();
+        ctx.moveTo(ship.x, ship.y + 58);
+        ctx.lineTo(ship.x + ship.w - 36, ship.y + 58);
+        ctx.lineTo(ship.x + ship.w, ship.y + 86);
+        ctx.lineTo(ship.x + 22, ship.y + 102);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = "#d7c9a5";
+        ctx.fillRect(ship.x + 44, ship.y + 8, ship.w - 130, 48);
+
+        ctx.fillStyle = "#f8f5eb";
+        ctx.fillRect(ship.x + 80, ship.y - 12, 180, 28);
+        ctx.fillRect(ship.x + 160, ship.y - 32, 110, 24);
+
+        for (let i = 0; i < 4; i++)
+        {
+            const pipeX = ship.x + 95 + i * 62;
+
+            ctx.fillStyle = "#d7a12c";
+            ctx.fillRect(pipeX, ship.y - 46, 26, 40);
+
+            ctx.fillStyle = "#1f1f1f";
+            ctx.fillRect(pipeX, ship.y - 52, 26, 8);
+        }
+
+        for (let i = 0; i < 14; i++)
+        {
+            ctx.fillStyle = "#c9ecff";
+            ctx.fillRect(ship.x + 55 + i * 23, ship.y + 20, 12, 8);
+        }
+
+        for (let i = 0; i < 10; i++)
+        {
+            ctx.fillStyle = "#c9ecff";
+            ctx.fillRect(ship.x + 80 + i * 22, ship.y + 40, 10, 7);
+        }
+
+        ctx.fillStyle = "#6b432c";
+        ctx.fillRect(ship.x + 28, ship.y + 2, ship.w - 78, 8);
+
+        ctx.fillStyle = "#f7f1d5";
+
+        for (let i = 0; i < 8; i++)
+        {
+            ctx.fillRect(ship.x + 75 + i * 34, ship.y - 2, 22, 6);
+        }
+
+        ctx.restore();
+    }
+
+    function drawIcebergs()
+    {
+        for (const iceberg of game.icebergs)
+        {
+            ctx.fillStyle = "#effaff";
+            ctx.beginPath();
+            ctx.moveTo(iceberg.x, iceberg.y - iceberg.r);
+            ctx.lineTo(iceberg.x - iceberg.r, iceberg.y + iceberg.r);
+            ctx.lineTo(iceberg.x + iceberg.r, iceberg.y + iceberg.r);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = "#d4f0ff";
+            ctx.beginPath();
+            ctx.moveTo(iceberg.x, iceberg.y - iceberg.r * 0.45);
+            ctx.lineTo(iceberg.x - iceberg.r * 0.5, iceberg.y + iceberg.r * 0.55);
+            ctx.lineTo(iceberg.x + iceberg.r * 0.5, iceberg.y + iceberg.r * 0.55);
+            ctx.closePath();
+            ctx.fill();
+        }
+    }
+
+    function drawInteriorRoom(room)
+    {
+        if (room === "dining")
+        {
+            drawDiningRoom();
+        }
+
+        if (room === "cabin")
+        {
+            drawCabin();
+        }
+
+        if (room === "lounge")
+        {
+            drawLounge();
+        }
+
+        if (room === "corridor")
+        {
+            drawCorridor();
+        }
+    }
+
+    function drawDiningRoom()
+    {
+        ctx.fillStyle = "#d6b98a";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = "#8a5a3c";
+        ctx.fillRect(0, 0, canvas.width, 90);
+
+        ctx.fillStyle = "#7a2330";
+        ctx.fillRect(0, canvas.height - 140, canvas.width, 140);
+
+        ctx.fillStyle = "#5b2d18";
+        ctx.fillRect(0, canvas.height - 30, canvas.width, 30);
+
+        for (let i = 0; i < 5; i++)
+        {
+            const wx = 120 + i * 180;
+            drawWindow(wx, 120, 100, 120);
+        }
+
+        const station = game.stations.dining;
+
+        ctx.fillStyle = "#7a4a27";
+        ctx.fillRect(station.x, station.y, station.w, station.h);
+
+        ctx.fillStyle = "#fff9df";
+        ctx.beginPath();
+        ctx.arc(station.x + 36, station.y + 20, 10, 0, Math.PI * 2);
+        ctx.arc(station.x + 84, station.y + 20, 10, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#b3412f";
+        ctx.fillRect(station.x + 26, station.y + 38, 20, 12);
+        ctx.fillRect(station.x + 74, station.y + 38, 20, 12);
+
+        ctx.fillStyle = "#333";
+        ctx.font = "22px Arial";
+        ctx.fillText("Їдальня Титаніка", 90, 70);
+    }
+
+    function drawCabin()
+    {
+        ctx.fillStyle = "#d8c5ae";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = "#9a6c49";
+        ctx.fillRect(0, 0, canvas.width, 100);
+
+        ctx.fillStyle = "#6d4c35";
+        ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
+
+        ctx.fillStyle = "#5a3563";
+        ctx.fillRect(80, canvas.height - 170, canvas.width - 160, 120);
+
+        const station = game.stations.cabin;
+
+        ctx.fillStyle = "#7d4f35";
+        ctx.fillRect(station.x, station.y, station.w, station.h);
+
+        ctx.fillStyle = "#f2e3c2";
+        ctx.fillRect(station.x + 12, station.y + 10, station.w - 24, 20);
+
+        ctx.fillStyle = "#e9d7b7";
+        ctx.fillRect(station.x + 16, station.y + 32, station.w - 32, 20);
+
+        ctx.fillStyle = "#333";
+        ctx.font = "22px Arial";
+        ctx.fillText("Каюта", 90, 70);
+
+        drawLamp(160, 160);
+        drawLamp(canvas.width - 160, 160);
+    }
+
+    function drawLounge()
+    {
+        ctx.fillStyle = "#c6ab84";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = "#6b4327";
+        ctx.fillRect(0, 0, canvas.width, 90);
+
+        ctx.fillStyle = "#7a1930";
+        ctx.fillRect(0, canvas.height - 120, canvas.width, 120);
+
+        const station = game.stations.lounge;
+
+        ctx.fillStyle = "#5e3720";
+        ctx.fillRect(station.x, station.y, station.w, station.h);
+
+        ctx.fillStyle = "#32180c";
+        ctx.fillRect(station.x + 20, station.y + 18, station.w - 40, station.h - 24);
+
+        ctx.fillStyle = "#ffb347";
+        ctx.beginPath();
+        ctx.arc(station.x + station.w / 2, station.y + 44, 20, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#f36f21";
+        ctx.beginPath();
+        ctx.arc(station.x + station.w / 2, station.y + 48, 12, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#8b1e3f";
+        ctx.fillRect(180, 360, 110, 70);
+        ctx.fillRect(canvas.width - 290, 360, 110, 70);
+
+        ctx.fillStyle = "#333";
+        ctx.font = "22px Arial";
+        ctx.fillText("Салон відпочинку", 90, 70);
+
+        drawLamp(190, 140);
+        drawLamp(canvas.width - 190, 140);
+    }
+
+    function drawCorridor()
+    {
+        ctx.fillStyle = "#d6bf9d";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = "#8b613f";
+        ctx.fillRect(0, 0, canvas.width, 100);
+
+        ctx.fillStyle = "#6d4b30";
+        ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
+
+        for (let i = 0; i < 5; i++)
+        {
+            const doorX = 140 + i * 180;
+            ctx.fillStyle = "#6b4022";
+            ctx.fillRect(doorX, 220, 90, 170);
+            ctx.fillStyle = "#d1b58e";
+            ctx.fillRect(doorX + 12, 238, 66, 110);
+            ctx.fillStyle = "#c79a42";
+            ctx.beginPath();
+            ctx.arc(doorX + 70, 310, 5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        ctx.fillStyle = "#333";
+        ctx.font = "22px Arial";
+        ctx.fillText("Коридор Титаніка", 90, 70);
+    }
+
+    function drawWindow(x, y, w, h)
+    {
+        ctx.fillStyle = "#6c4b32";
+        ctx.fillRect(x - 6, y - 6, w + 12, h + 12);
+
+        ctx.fillStyle = "#bdeaff";
+        ctx.fillRect(x, y, w, h);
+
+        ctx.strokeStyle = "#6c4b32";
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.moveTo(x + w / 2, y);
+        ctx.lineTo(x + w / 2, y + h);
+        ctx.moveTo(x, y + h / 2);
+        ctx.lineTo(x + w, y + h / 2);
+        ctx.stroke();
+    }
+
+    function drawLamp(x, y)
+    {
+        ctx.fillStyle = "#d4a85f";
+        ctx.beginPath();
+        ctx.arc(x, y, 18, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "rgba(255, 237, 167, 0.25)";
+        ctx.beginPath();
+        ctx.arc(x, y, 55, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    function drawLifeboatIfNeeded()
+    {
+        if (game.phase !== "sinking" && game.phase !== "win")
+        {
+            return;
+        }
+
+        const boat = game.lifeboat;
+
+        ctx.fillStyle = "#8b5a37";
+        ctx.beginPath();
+        ctx.moveTo(boat.x, boat.y + 12);
+        ctx.lineTo(boat.x + boat.w, boat.y + 12);
+        ctx.lineTo(boat.x + boat.w - 18, boat.y + boat.h);
+        ctx.lineTo(boat.x + 18, boat.y + boat.h);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = "#f0d8b4";
+        ctx.fillRect(boat.x + 10, boat.y + 8, boat.w - 20, 10);
+
+        ctx.strokeStyle = "#d4c1a0";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(boat.x + 24, boat.y + 10);
+        ctx.lineTo(boat.x + 10, boat.y - 18);
+        ctx.moveTo(boat.x + boat.w - 24, boat.y + 10);
+        ctx.lineTo(boat.x + boat.w - 10, boat.y - 18);
+        ctx.stroke();
+
+        ctx.fillStyle = "#fff";
+        ctx.font = "13px Arial";
+        ctx.fillText("Шлюпка", boat.x + 38, boat.y + 30);
+
+        if (game.phase === "sinking")
+        {
+            ctx.strokeStyle = "#ffeb3b";
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(boat.x - 60, boat.y + 24);
+            ctx.lineTo(boat.x - 8, boat.y + 24);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(boat.x - 18, boat.y + 14);
+            ctx.lineTo(boat.x, boat.y + 24);
+            ctx.lineTo(boat.x - 18, boat.y + 34);
+            ctx.stroke();
+        }
+    }
+
+    function drawSinkingWaterOverlay()
+    {
+        ctx.fillStyle = "rgba(120, 200, 255, 0.35)";
+        ctx.fillRect(0, canvas.height - game.waterLevel, canvas.width, game.waterLevel);
+    }
+
+    function drawPlayers()
+    {
+        if (game.phase === "sailing" && game.controlMode === "ship")
+        {
+            return;
+        }
+
+        for (const player of game.players)
+        {
+            if (!player.alive)
+            {
+                continue;
+            }
+
+            if (player.escaped && game.phase !== "win")
+            {
+                continue;
+            }
+
+            ctx.beginPath();
+            ctx.fillStyle = player.color;
+            ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = "#222";
+            ctx.beginPath();
+            ctx.arc(player.x - 5, player.y - 3, 2, 0, Math.PI * 2);
+            ctx.arc(player.x + 5, player.y - 3, 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.strokeStyle = "#222";
+            ctx.lineWidth = 2;
+            ctx.arc(player.x, player.y + 3, 5, 0, Math.PI);
+            ctx.stroke();
+
+            ctx.fillStyle = "#111";
+            ctx.font = "14px Arial";
+            ctx.fillText(player.name, player.x - 20, player.y - 24);
+
+            if (player.escaped)
+            {
+                ctx.fillStyle = "#0d7f3d";
+                ctx.fillText("врятувався", player.x - 28, player.y - 42);
+            }
+        }
+    }
+
+    function drawStatus()
+    {
+        const active = getActivePlayer();
+
+        let html = "";
+        html += "<div><b>Етап:</b> " + getPhaseTitle() + "</div>";
+        html += "<div><b>Режим:</b> " + getControlTitle() + "</div>";
+        html += "<div><b>Кімната:</b> " + getRoomTitle(game.currentRoom) + "</div>";
+        html += "<div><b>Очки:</b> " + game.score + "</div>";
+        html += "<div><b>Швидкість корабля:</b> " + game.ship.speed.toFixed(1) + "</div>";
+
+        if (active)
+        {
+            html += createBar("Їжа", active.hunger, "#ffb703");
+            html += createBar("Сон", active.energy, "#7bd1ff");
+            html += createBar("Тепло", active.warmth, "#ff7b7b");
+            html += createBar("Настрій", active.mood, "#b28dff");
+        }
+        else
+        {
+            html += "<div style='margin-top:8px;'>Обери Джека або Роуз, щоб керувати героєм.</div>";
+        }
+
+        html += "<div style='margin-top:8px; font-size:12px;'><b>Джек:</b> " + getPlayerState(game.players[0]) + "</div>";
+        html += "<div style='font-size:12px;'><b>Роуз:</b> " + getPlayerState(game.players[1]) + "</div>";
+
+        statusEl.innerHTML = html;
+    }
+
+    function createBar(label, value, color)
+    {
+        return `
+            <div class="bar-wrap">
+                <div class="label">${label}: ${Math.round(value)}%</div>
+                <div class="bar">
+                    <div class="fill" style="width:${value}%; background:${color};"></div>
+                </div>
+            </div>
+        `;
+    }
+
+    function getPhaseTitle()
+    {
+        if (game.phase === "sailing")
+        {
+            return "Подорож";
+        }
+
+        if (game.phase === "sinking")
+        {
+            return "Титанік тоне";
+        }
+
+        if (game.phase === "win")
+        {
+            return "Перемога";
+        }
+
+        if (game.phase === "gameover")
+        {
+            return "Гру завершено";
+        }
+
+        return game.phase;
+    }
+
+    function getControlTitle()
+    {
+        if (game.controlMode === "ship")
+        {
+            return "Титанік";
+        }
+
+        if (game.controlMode === "player1")
+        {
+            return "Джек";
+        }
+
+        if (game.controlMode === "player2")
+        {
+            return "Роуз";
+        }
+
+        return game.controlMode;
+    }
+
+    function getPlayerState(player)
+    {
+        if (!player.alive)
+        {
+            return "без сил";
+        }
+
+        if (player.escaped)
+        {
+            return "врятувався";
+        }
+
+        return "у грі";
+    }
+
+    function drawOverlayText()
+    {
+        if (game.phase === "gameover")
+        {
+            drawCenterText("Гру завершено", "Натисни R, щоб почати знову");
+        }
+
+        if (game.phase === "win")
+        {
+            drawCenterText("Перемога!", "Джек і Роуз врятувалися");
+        }
+    }
+
+    function drawCenterText(title, subtitle)
+    {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = "#ffffff";
+        ctx.textAlign = "center";
+        ctx.font = "bold 46px Arial";
+        ctx.fillText(title, canvas.width / 2, canvas.height / 2 - 10);
+
+        ctx.font = "24px Arial";
+        ctx.fillText(subtitle, canvas.width / 2, canvas.height / 2 + 36);
+        ctx.textAlign = "left";
+    }
+
+    function loop()
+    {
+        if (game.phase !== "gameover" && game.phase !== "win")
+        {
+            update();
+        }
+
+        draw();
+        requestAnimationFrame(loop);
+    }
+
+    loop();
+</script>
+</body>
+</html>
