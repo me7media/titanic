@@ -54,4 +54,19 @@ If you have the code on your computer:
 - `test.html`: Automated test suite.
 
 ---
+## 🏗️ Збірка та Продакшн
+
+Проект підтримує автоматичну збірку (Bundling) та мініфікацію за допомогою **esbuild**. 
+
+### Як зібрати проект:
+1. Виконайте команду для встановлення залежностей:
+   ```bash
+   npm install
+   ```
+2. Запустіть скрипт збірки:
+   ```bash
+   npm run build
+   ```
+3. Після завершення у папці `dist/` з'являться мініфіковані скрипти, а в корені — файли `index.prod.html` та `gallery.prod.html` з підтримкою версіонування (`?v=1.0.1`).
+
 *Created with cinematic passion for history.*
