@@ -8,3 +8,7 @@ yarn-error.log*
 .vscode/
 dist/
 build/
+playwright-report/
+test-results/
+playwright.config.js
+
