@@ -201,11 +201,11 @@ function updateCamera() {
                 game.keys['ArrowLeft'] || game.keys['a'] ||
                 game.keys['ArrowRight'] || game.keys['d'];
 
-            const dist = game.camDist || 100;
+            const dist = (game.camDist || 100) * 1.5; // Increased distance
             if (isSteering) {
                 // Focus View: Lock behind with mouse influence
                 const targetCam = new THREE.Vector3(-dist * 1.5, 45 + (game.mouseY * 10), game.ship.zPos + (game.mouseX * 20));
-                camera.position.lerp(targetCam, 0.08);
+                camera.position.lerp(targetCam, 0.03); // Slower lerp for more cinematic transition (was 0.08)
                 camera.lookAt(50, 10, game.ship.zPos);
             } else {
                 // Cinematic Orbit: Slow move with mouse peek

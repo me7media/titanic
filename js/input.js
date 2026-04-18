@@ -216,6 +216,7 @@ function initMobileControls() {
     setupToggleButton('btn-mode-ship', '1');
     setupToggleButton('btn-mode-jack', '2');
     setupToggleButton('btn-mode-rose', '3');
+    setupToggleButton('btn-mode-free', 'p');
     setupToggleButton('btn-room', 'k');
     setupToggleButton('btn-deck-up', 'e');
     setupToggleButton('btn-deck-down', 'q');
@@ -267,8 +268,7 @@ function setupToggleButton(id, key) {
 }
 
 /**
- * Updates the visibility of mobile action buttons based on the current game mode and room.
- * This ensures only relevant buttons (e.g., 'Eat' in Dining Room) are shown.
+ * Updates the visibility of mobile action buttons and highlights active mode tabs.
  */
 function updateMobileContext() {
     const btns = {
@@ -281,6 +281,20 @@ function updateMobileContext() {
         deckDown: document.getElementById('btn-deck-down'),
     };
 
+    const modeTabs = {
+        ship: document.getElementById('btn-mode-ship'),
+        jack: document.getElementById('btn-mode-jack'),
+        rose: document.getElementById('btn-mode-rose'),
+        freecam: document.getElementById('btn-mode-free'),
+    };
+
+    // Highlight active tab
+    Object.entries(modeTabs).forEach(([m, btn]) => {
+        if (!btn) return;
+        if (game.controlMode === m) btn.classList.add('active');
+        else btn.classList.remove('active');
+    });
+
     // Hide all first
     Object.values(btns).forEach(b => { if (b) b.style.display = 'none'; });
 
@@ -288,8 +302,7 @@ function updateMobileContext() {
     const room = game.currentRoom;
     const mode = game.controlMode;
 
-    if (mode === 'ship') {
-        // No character actions in ship mode
+    if (mode === 'ship' || mode === 'freecam') {
         return;
     }
 

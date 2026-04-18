@@ -82,19 +82,21 @@ h1 {
     font-family: 'Playfair Display', serif;
     font-size: 42px;
     margin: 0;
-    color: var(--gold);
-    text-shadow: 0 0 15px rgba(212, 175, 55, 0.5);
-    letter-spacing: 2px;
+    color: #ffdd88; /* Bright Gold */
+    text-shadow: 0 0 20px rgba(212, 175, 55, 0.8), 2px 2px 4px rgba(0,0,0,0.5);
+    letter-spacing: 3px;
 }
 
 #mode-indicator {
     background: var(--glass);
     padding: 8px 20px;
     border-radius: 30px;
-    border: 1px solid rgba(212, 175, 55, 0.3);
+    border: 1px solid #aaddff;
     backdrop-filter: blur(8px);
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 700;
+    color: #aaddff; /* Light blue mode name */
+    text-shadow: 0 0 5px rgba(170, 221, 255, 0.5);
 }
 
 /* Stats Panel */
@@ -177,6 +179,8 @@ h1 {
     font-size: 13px;
     font-weight: 600;
     margin-top: auto;
+    color: #aaddff; /* Light blue text */
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
 }
 
 .hint-item {
@@ -249,15 +253,16 @@ h1 {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background: rgba(10, 15, 25, 0.95);
+    background: rgba(5, 12, 25, 0.98);
     color: #ffffff;
     padding: 30px 40px;
     border: 2px solid var(--primary);
     border-radius: 12px;
-    backdrop-filter: blur(20px);
-    box-shadow: 0 0 30px rgba(0, 0, 0, 0.8), 0 0 10px rgba(201, 162, 64, 0.4);
+    backdrop-filter: blur(25px);
+    box-shadow: 0 0 50px rgba(0, 0, 0, 1), 0 0 20px rgba(201, 162, 64, 0.5);
     z-index: 1000;
 }
+
 
 #close-help {
     position: absolute;
@@ -286,12 +291,14 @@ h1 {
     list-style: none;
     font-size: 16px;
     line-height: 2.2;
-    text-shadow: 1px 1px 2px #000;
+    color: #aaddff; /* Light blue text */
+    text-shadow: 1px 1px 4px #000;
 }
 
 #help-menu strong {
-    color: var(--primary);
+    color: #ffdd88; /* Lighter gold for better contrast */
     margin-right: 10px;
+    font-weight: 800;
 }
 
 .hidden {
@@ -316,26 +323,26 @@ h1 {
     pointer-events: auto;
 }
 
-/* Mode Tabs (top center) */
-#mobile-mode-tabs {
+/* Mode Tabs / Toggle Buttons (top center) */
+.mobile-toggle-group {
     position: absolute;
     top: 10px;
     left: 50%;
     transform: translateX(-50%);
     display: flex;
-    gap: 6px;
+    gap: 8px;
     z-index: 60;
 }
 
-.mode-tab {
-    width: 48px;
-    height: 48px;
+.mobile-btn {
+    width: 44px;
+    height: 44px;
     border-radius: 12px;
-    border: 1px solid rgba(201, 162, 64, 0.4);
-    background: rgba(5, 10, 20, 0.7);
+    border: 1px solid rgba(201, 162, 64, 0.5);
+    background: rgba(5, 10, 20, 0.85);
     backdrop-filter: blur(10px);
     color: #fff;
-    font-size: 22px;
+    font-size: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -345,11 +352,12 @@ h1 {
     touch-action: manipulation;
 }
 
-.mode-tab.active-tab {
-    background: rgba(201, 162, 64, 0.3);
-    border-color: var(--primary);
-    box-shadow: 0 0 12px rgba(201, 162, 64, 0.4);
+.mobile-btn.active {
+    background: rgba(201, 162, 64, 0.5);
+    border-color: #ffdd88;
+    box-shadow: 0 0 15px rgba(201, 162, 64, 0.6);
 }
+
 
 .room-tab {
     margin-left: 8px;
@@ -475,9 +483,11 @@ h1 {
     }
 
     .stat-group {
-        padding: 6px 10px;
-        min-width: 100px;
+        padding: 4px 8px;
+        min-width: 85px;
+        background: rgba(0, 0, 0, 0.6);
     }
+
 
     .stat-name {
         font-size: 12px;
