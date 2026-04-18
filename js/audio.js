@@ -1,6 +1,7 @@
 import { game } from './state.js';
 
-export function initAudio() {
+export function initAudio(showMsg) {
+    const showMessageFn = showMsg;
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     const ctx = new AudioContext();
 
@@ -81,23 +82,31 @@ export function initAudio() {
     }
 
     const startAudio = async () => {
+        // iOS Hack: Play a silent sound immediately to unlock the context
+        const silentOsc = ctx.createOscillator();
+        const silentGain = ctx.createGain();
+        silentGain.gain.value = 0.001;
+        silentOsc.connect(silentGain);
+        silentGain.connect(ctx.destination);
+        silentOsc.start(0);
+        silentOsc.stop(0.1);
+
         if (ctx.state === 'suspended') await ctx.resume();
+        
         createEngineSound();
         playMelody(); 
+        
+        if (typeof showMessageFn === 'function') {
+            showMessageFn("Аудіо активовано. Перевірте фізичний перемикач звуку на iPhone!");
+        }
     };
 
     // Global helper for mobile touch re-activation
     window.resumeAudio = () => {
         if (ctx.state === 'suspended') {
-            ctx.resume().then(() => {
-                console.log("AudioContext resumed successfully.");
-            }).catch(err => console.error("Audio resume failed:", err));
+            ctx.resume();
+            // Re-trigger playback logic if stopped
         }
-    };
-
-    // Auto-resume on any state change
-    ctx.onstatechange = () => {
-        if (ctx.state === 'suspended') window.resumeAudio();
     };
 
     startAudio(); 

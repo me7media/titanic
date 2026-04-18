@@ -167,7 +167,7 @@ function showMessage(text) {
  * Starts the game officially: initiates audio and hides the start screen.
  */
 function startGame() {
-    initAudio();
+    initAudio(showMessage);
 //...
     const startScreen = document.getElementById('start-screen');
     if (startScreen) {
