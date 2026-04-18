@@ -92,11 +92,11 @@ export function handleToggleKey(key) {
     // Deck level changes
     const isInteriorNow = game.currentRoom !== 'deck';
     if (k === 'q' && !isInteriorNow && game.players[game.controlMode]) {
-        game.players[game.controlMode].deckLevel = Math.max(0, (game.players[game.controlMode].deckLevel || 0) - 1);
+        game.players[game.controlMode].deckLevel = Math.min(4, (game.players[game.controlMode].deckLevel || 0) + 1);
         showMessageFn?.("Спуск на палубу нижче");
     }
     if (k === 'e' && !isInteriorNow && game.players[game.controlMode]) {
-        game.players[game.controlMode].deckLevel = Math.min(4, (game.players[game.controlMode].deckLevel || 0) + 1);
+        game.players[game.controlMode].deckLevel = Math.max(0, (game.players[game.controlMode].deckLevel || 0) - 1);
         showMessageFn?.("Підйом на палубу вище");
     }
 
@@ -320,11 +320,15 @@ function updateMobileContext() {
     const room = game.currentRoom;
     const mode = game.controlMode;
 
-    if (mode === 'ship' || mode === 'freecam') {
+    if (mode === 'freecam') {
         return;
     }
 
     if (room === 'deck') {
+        if (mode === 'ship') {
+            if (btns.l) btns.l.style.display = 'flex';
+            return;
+        }
         if (btns.deckUp) btns.deckUp.style.display = 'flex';
         if (btns.deckDown) btns.deckDown.style.display = 'flex';
         if (btns.z) btns.z.style.display = 'flex';
