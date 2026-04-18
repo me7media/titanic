@@ -69,8 +69,8 @@ function init() {
     scene.add(hemiLight);
 
     moonLight = new THREE.DirectionalLight(0xffa060, 2.0);
-    // Behind and to the left: -X, +Y, -Z
-    moonLight.position.set(-150, 100, -100);
+    // Front and to the side: +X, +Y, -Z (to match user's desired lighting shift)
+    moonLight.position.set(150, 120, -100);
     moonLight.castShadow = true;
     moonLight.shadow.mapSize.width = 2048;
     moonLight.shadow.mapSize.height = 2048;
@@ -85,7 +85,7 @@ function init() {
         new THREE.CircleGeometry(25, 32),
         new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false }) // Immune to fog
     );
-    moon.position.set(-600, 450, 600);
+    moon.position.set(600, 450, -400); // Front-left in the sky, matching moonlight origin
     moon.lookAt(0, 0, 0);
     scene.add(moon);
 
@@ -201,21 +201,21 @@ function updateCamera() {
                 game.keys['ArrowLeft'] || game.keys['a'] ||
                 game.keys['ArrowRight'] || game.keys['d'];
 
-            const dist = (game.camDist || 100) * 1.5; // Increased distance
+            const dist = (game.camDist || 100) * 1.5;
             if (isSteering) {
-                // Focus View: Lock behind with mouse influence
-                const targetCam = new THREE.Vector3(-dist * 1.5, 45 + (game.mouseY * 10), game.ship.zPos + (game.mouseX * 20));
-                camera.position.lerp(targetCam, 0.03); // Slower lerp for more cinematic transition (was 0.08)
-                camera.lookAt(50, 10, game.ship.zPos);
+                // Focus View: Higher angle to see icebergs ahead
+                const targetCam = new THREE.Vector3(-dist * 1.5, 75 + (game.mouseY * 15), game.ship.zPos + (game.mouseX * 25));
+                camera.position.lerp(targetCam, 0.03); 
+                camera.lookAt(80, 5, game.ship.zPos); // Look further towards the bow/horizon
             } else {
-                // Cinematic Orbit: Slow move with mouse peek
+                // Cinematic Orbit: Higher baseline
                 const orbitSpeed = game.time * 0.1;
-                const camX = Math.sin(orbitSpeed) * dist;
-                const camZ = game.ship.zPos + Math.cos(orbitSpeed) * dist * 0.7;
-                const peekX = game.mouseX * 15;
-                const peekY = -game.mouseY * 10;
-                camera.position.lerp(new THREE.Vector3(camX + peekX, 35 + peekY, camZ), 0.02);
-                camera.lookAt(0, 15, game.ship.zPos);
+                const camX = Math.sin(orbitSpeed) * dist * 1.2;
+                const camZ = game.ship.zPos + Math.cos(orbitSpeed) * dist * 0.8;
+                const peekX = game.mouseX * 20;
+                const peekY = -game.mouseY * 15;
+                camera.position.lerp(new THREE.Vector3(camX + peekX, 60 + peekY, camZ), 0.02);
+                camera.lookAt(0, 10, game.ship.zPos);
             }
         } else if (game.controlMode === 'freecam') {
             const spd = 2;

@@ -18,10 +18,11 @@ function init() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.shadowMap.enabled = true;
+    renderer.setClearColor(0x050a14); // Explicit dark blue
     document.body.appendChild(renderer.domElement);
 
     // Basic Studio Lighting
-    const amb = new THREE.AmbientLight(0xffffff, 0.5);
+    const amb = new THREE.AmbientLight(0xffffff, 0.8);
     scene.add(amb);
     const sun = new THREE.DirectionalLight(0xffffff, 1.0);
     sun.position.set(50, 100, 50);
@@ -62,12 +63,14 @@ function clearGallery() {
         scene.remove(currentObject);
         currentObject = null;
     }
-    // Clean up auxiliary interior rooms
+    // Safe removal of objects with galleryItem flag
+    const toRemove = [];
     scene.children.forEach(child => {
         if (child.userData && child.userData.galleryItem) {
-            scene.remove(child);
+            toRemove.push(child);
         }
     });
+    toRemove.forEach(child => scene.remove(child));
 }
 
 function showView(type) {
@@ -97,11 +100,7 @@ function showView(type) {
         case 'lounge':
             distance = 40; azimuth = 0.5; polar = 1.2;
             const roomGroup = new THREE.Group();
-            initInteriors(roomGroup);
-            // We want to isolate specific room. Interiors creates all at y positions.
-            // We shift the camera to the room's height or shift the room to 0.
-            const roomY = ROOM_Y_POSITIONS[type === 'dining' ? 'dining' : (type === 'cabin' ? 'jack' : 'lounge')];
-            roomGroup.position.y = -roomY;
+            initInteriors(roomGroup, type); // Isolates to just one room at Y=0
             currentObject = roomGroup;
             scene.add(currentObject);
             break;

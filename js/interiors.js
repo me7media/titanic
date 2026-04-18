@@ -1,47 +1,39 @@
 import { ROOM_Y_POSITIONS } from './state.js';
 
-export function initInteriors(scene) {
+export function initInteriors(scene, singleRoom = null) {
     // Rooms are placed deep underground to avoid intersecting with Ship/Ocean
-    const rooms = ['dining', 'cabin', 'lounge'];
+    const rooms = singleRoom ? [singleRoom] : ['dining', 'cabin', 'lounge'];
     
     // Materials
     const woodWall = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, side: THREE.DoubleSide, roughness: 0.8 }); // Brightened mahogany
     const whiteWall = new THREE.MeshStandardMaterial({ color: 0xe0e0e0, side: THREE.DoubleSide, roughness: 1.0 });
     const redCarpet = new THREE.MeshStandardMaterial({ color: 0x8b0000, roughness: 1.0 });
-    const richCarpet = new THREE.MeshStandardMaterial({ color: 0x223366, roughness: 0.9 }); // Lounge uses blue
+    const softBlueCarpet = new THREE.MeshStandardMaterial({ color: 0x88d8d0, roughness: 0.8 }); // Light turquoise / 'Coral Sea' blue
+    const richCarpet = new THREE.MeshStandardMaterial({ color: 0x223366, roughness: 0.9 }); 
     const woodMat = new THREE.MeshStandardMaterial({ color: 0x5c3a21, roughness: 0.8 });
     const whiteCloth = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
     
     rooms.forEach(room => {
-        const yBase = ROOM_Y_POSITIONS[room];
+        const yBase = singleRoom ? 0 : ROOM_Y_POSITIONS[room]; // If single room, stay at 0
         const group = new THREE.Group();
         group.position.set(0, yBase, 0);
         
         // Structure
         const wMat = room === 'corridor' ? whiteWall : woodWall;
-        const fMat = room === 'lounge' ? richCarpet : redCarpet;
+        // Unified floor for all rooms: Rich Blue (as in the Lounge)
+        const fMat = richCarpet;
 
-        // Expanded Room bounds (60x20x40)
-        const roomBox = new THREE.Mesh(new THREE.BoxGeometry(60, 20, 40), wMat);
-        roomBox.position.set(0, yBase + 10, 0);
-        roomBox.receiveShadow = true;
-        group.add(roomBox);
+        // Note: Outer walls and ceilings removed to create open dioramas (as requested)
 
-        // Fix Z-fighting: Raise floor slightly above the roomBox absolute bottom
+        // Fix Z-fighting: Raise floor slightly
         const floor = new THREE.Mesh(new THREE.PlaneGeometry(59.8, 39.8), fMat);
         floor.rotation.x = -Math.PI / 2;
-        floor.position.set(0, yBase + 0.05, 0); // Prevents flickering
+        floor.position.set(0, yBase + 0.05, 0); 
         floor.receiveShadow = true;
         group.add(floor);
         
-        // Rich ceiling detail
-        const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(58, 38), new THREE.MeshStandardMaterial({color: 0xfffbee, roughness: 0.8}));
-        ceiling.rotation.x = Math.PI / 2;
-        ceiling.position.set(0, yBase + 19.9, 0);
-        group.add(ceiling);
-        
-        // Ambient Fill Light for interior
-        group.add(new THREE.AmbientLight(0xffeedd, 0.4));
+        // Light is handled by chandeliers or the main scene
+
 
         // Furnish based on room type
         switch(room) {
@@ -50,12 +42,12 @@ export function initInteriors(scene) {
                 buildDining(group, woodMat, whiteCloth);
                 break;
             case 'cabin':
-                buildPanelling(group, woodMat);
+                buildPanelling(group, woodMat); 
                 buildCabin(group, woodMat, whiteCloth);
                 break;
             case 'lounge':
                 buildPanelling(group, woodMat);
-                buildGrandStaircase(group, woodMat, redCarpet);
+                buildGrandStaircase(group, woodMat, redCarpet); // Red for iconic staircase
                 buildLounge(group, woodMat);
                 break;
             case 'corridor':
@@ -134,12 +126,21 @@ function buildArmchair(woodMat, fabricMat) {
 
 // FURNITURE BUILDERS
 function buildDining(group, woodMat, clothMat) {
+    // Grand Chandelier
+    const mainLight = new THREE.PointLight(0xffeedd, 1.5, 50);
+    mainLight.position.set(0, 14, 0);
+    group.add(mainLight);
+
     // 3 Long Tables
     const tGeo = new THREE.BoxGeometry(10, 0.2, 4);
     const legGeo = new THREE.BoxGeometry(0.2, 2.5, 0.2);
+    const chairBackGeo = new THREE.BoxGeometry(1.2, 2.5, 0.2);
+    const chairSeatGeo = new THREE.BoxGeometry(1.2, 0.2, 1.2);
+    const plateGeo = new THREE.CircleGeometry(0.5, 16);
+    const foodGeo = new THREE.SphereGeometry(0.2, 8, 8);
     
     for(let t=0; t<3; t++) {
-        const zPos = -8 + (t * 8);
+        const zPos = -10 + (t * 10);
         
         // Table top
         const table = new THREE.Mesh(tGeo, clothMat);
@@ -154,6 +155,42 @@ function buildDining(group, woodMat, clothMat) {
             group.add(leg);
         });
 
+        // Plates and Food on table
+        for(let x=-4; x<=4; x+=2) {
+            // Plates
+            const plate = new THREE.Mesh(plateGeo, new THREE.MeshStandardMaterial({color: 0xffffff}));
+            plate.rotation.x = -Math.PI / 2;
+            plate.position.set(x, 2.71, zPos - 1.2);
+            group.add(plate);
+            const plate2 = plate.clone();
+            plate2.position.z = zPos + 1.2;
+            group.add(plate2);
+
+            // Food items (Fruits/Bread)
+            if (Math.random() > 0.3) {
+                const food = new THREE.Mesh(foodGeo, new THREE.MeshStandardMaterial({color: Math.random() > 0.5 ? 0xffcc00 : 0xaa2222}));
+                food.position.set(x, 2.9, zPos + (Math.random() > 0.5 ? 1.2 : -1.2));
+                group.add(food);
+            }
+        }
+
+        // Chairs along both sides (fewer chairs, further back)
+        for(let x=-4; x<=4; x+=3) {
+            // Side 1: Facing towards positive Z
+            const c1 = new THREE.Group();
+            const seat1 = new THREE.Mesh(chairSeatGeo, woodMat); seat1.position.y = 1.2; c1.add(seat1);
+            const back1 = new THREE.Mesh(chairBackGeo, woodMat); back1.position.set(0, 2.3, -0.6); c1.add(back1);
+            c1.position.set(x, 0, zPos - 3.5);
+            group.add(c1);
+
+            // Side 2: Facing towards negative Z
+            const c2 = new THREE.Group();
+            const seat2 = new THREE.Mesh(chairSeatGeo, woodMat); seat2.position.y = 1.2; c2.add(seat2);
+            const back2 = new THREE.Mesh(chairBackGeo, woodMat); back2.position.set(0, 2.3, 0.6); c2.add(back2);
+            c2.position.set(x, 0, zPos + 3.5);
+            group.add(c2);
+        }
+
         // 2 Candles on table
         [-3, 3].forEach(cx => {
             const candle = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.5), new THREE.MeshBasicMaterial({color: 0xffffff}));
@@ -165,11 +202,6 @@ function buildDining(group, woodMat, clothMat) {
             group.add(pLight);
         });
     }
-
-    // Grand Chandelier
-    const mainLight = new THREE.PointLight(0xffeedd, 1.5, 50);
-    mainLight.position.set(0, 14, 0);
-    group.add(mainLight);
 }
 
 function buildCabin(group, woodMat, clothMat) {
