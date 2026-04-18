@@ -14,6 +14,7 @@
     <h1>Тестування Модулів та Сцени</h1>
     <div id="results">Завантаження...</div>
 
+    <script src="./three.min.js"></script>
     <script type="module">
         const results = document.getElementById('results');
         results.innerHTML = '';
@@ -48,6 +49,18 @@
                     logMsg("ship.js успішно експортує shipGroup та initShip функцію.");
                 } else {
                     throw new Error("Missing exports in ship.js");
+                }
+                
+                // Test 3: Check character ECS movement structure and dependencies
+                if (chars.initCharacters && state.game.players) {
+                    logMsg("Модулі персонажів та керування станом (рухом) виявлені.", false);
+                    if(state.game.players.jack.energy === 100 && state.game.players.rose.hunger === 100) {
+                        logMsg("Стартові змінні виживання існують.");
+                    } else {
+                        throw new Error("Missing survival stats in state.js.");
+                    }
+                } else {
+                    throw new Error("Missing modules for characters.");
                 }
 
                 // Conclusion

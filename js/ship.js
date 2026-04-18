@@ -8,7 +8,7 @@ export function initShip(scene) {
     bowGroup = new THREE.Group();
     sternGroup = new THREE.Group();
     unifiedHullsGroup = new THREE.Group();
-    
+
     // Regular Unscaled Groups
     const bowModelGroup = bowGroup;
     const sternModelGroup = sternGroup;
@@ -18,16 +18,16 @@ export function initShip(scene) {
     shipGroup.add(bowGroup);
     shipGroup.add(sternGroup);
 
-    // Noir/Historical Materials
-    const hullMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8, metalness: 0.3 });
-    const bottomMat = new THREE.MeshStandardMaterial({ color: 0x5a1b1b, roughness: 0.9, metalness: 0.1 });
+    // Noir/Historical Materials - Deep Pitch Black Top, Vibrant Carmine Red Bottom
+    const hullMat = new THREE.MeshStandardMaterial({ color: 0x05080a, roughness: 0.7, metalness: 0.2 });
+    const bottomMat = new THREE.MeshStandardMaterial({ color: 0x6D201A, roughness: 0.7, metalness: 0.1 });
     const whiteMat = new THREE.MeshStandardMaterial({ color: 0xfffcf0, roughness: 0.6 });
-    const woodMat = new THREE.MeshStandardMaterial({ color: 0x3d2314, roughness: 0.9 });
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0x2A1B12, roughness: 0.9 });
     const funnelMat = new THREE.MeshStandardMaterial({ color: 0xcc9933, roughness: 0.7 });
     const funnelTopMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.9 });
     const wireMat = new THREE.LineBasicMaterial({ color: 0x555555, transparent: true, opacity: 0.5 });
     const windowMat = new THREE.MeshBasicMaterial({ color: 0xffeebb });
-    const propMat = new THREE.MeshStandardMaterial({color: 0xccaa33, metalness: 0.8, roughness: 0.2});
+    const propMat = new THREE.MeshStandardMaterial({ color: 0xccaa33, metalness: 0.8, roughness: 0.2 });
 
     function getHullZ(x, y, maxZ) {
         let z = maxZ;
@@ -51,8 +51,8 @@ export function initShip(scene) {
             let globalX = localX + offsetX;
             let y = pos.getY(i) + (topY + bottomY) / 2;
             let z = pos.getZ(i);
-            
-            const actualZ = getHullZ(globalX, y, (z > 0 ? width/2 : -width/2));
+
+            const actualZ = getHullZ(globalX, y, (z > 0 ? width / 2 : -width / 2));
             pos.setXYZ(i, localX, y - (topY + bottomY) / 2, actualZ);
         }
         geo.computeVertexNormals();
@@ -63,7 +63,7 @@ export function initShip(scene) {
         splitHulls.push(mesh);
         (isStern ? sternModelGroup : bowModelGroup).add(mesh);
     }
-    
+
     // Generator for unified (seamless) initial hulls
     function createUnifiedHull(width, length, topY, bottomY, mat) {
         const height = topY - bottomY;
@@ -73,7 +73,7 @@ export function initShip(scene) {
             let x = pos.getX(i);
             let y = pos.getY(i) + (topY + bottomY) / 2;
             let z = pos.getZ(i);
-            const actualZ = getHullZ(x, y, (z > 0 ? width/2 : -width/2));
+            const actualZ = getHullZ(x, y, (z > 0 ? width / 2 : -width / 2));
             pos.setXYZ(i, x, y - (topY + bottomY) / 2, actualZ);
         }
         geo.computeVertexNormals();
@@ -88,38 +88,51 @@ export function initShip(scene) {
     createSplitHull(27, 140, 25, 10, hullMat, true);
     createSplitHull(26.6, 138, 10, -2, bottomMat, false);
     createSplitHull(26.6, 138, 10, -2, bottomMat, true);
-    
+
     createUnifiedHull(27, 140, 25, 10, hullMat);
     createUnifiedHull(26.6, 138, 10, -2, bottomMat);
+
+    // Add glowing blue portholes along the hull sides
+    const portMat = new THREE.MeshBasicMaterial({ color: 0x88bbff, side: THREE.DoubleSide });
+    const portGeo = new THREE.CircleGeometry(0.22, 12);
     
-    // Add glowing portholes along the hull sides
-    const portMat = new THREE.MeshBasicMaterial({color: 0xffddaa});
-    const portGeo = new THREE.PlaneGeometry(0.5, 0.5);
-    for (let x = -65; x <= 65; x += 3.5) {
-        if (Math.abs(x) < 2) continue; // Skip seam
-        if (Math.random() > 0.2) {
-            const group = x < 0 ? sternModelGroup : bowModelGroup;
-            const yTarget = 17 + Math.random() * 2; // Below deck line
-            const hullZ = getHullZ(x, yTarget, 13.5);
-            
-            // Left side
-            const p1 = new THREE.Mesh(portGeo, portMat);
-            p1.position.set(x, yTarget, hullZ + 0.05);
-            p1.rotation.y = Math.atan2(0, 1); // roughly face out
-            group.add(p1);
-            
-            // Right side
-            const p2 = new THREE.Mesh(portGeo, portMat);
-            p2.position.set(x, yTarget, -hullZ - 0.05);
-            p2.rotation.y = Math.PI;
-            group.add(p2);
-        }
+    function addPort(x, y) {
+        if (Math.abs(x) < 1.0) return; // avoid middle seam
+        const group = x < 0 ? sternModelGroup : bowModelGroup;
+        const hullZ = getHullZ(x, y, 13.5);
+        
+        // Exact normal calculation so portholes don't clip into curved bow/stern
+        const z1 = getHullZ(x - 0.5, y, 13.5);
+        const z2 = getHullZ(x + 0.5, y, 13.5);
+        const angle = Math.atan2(z1 - z2, 1.0); 
+        
+        const p1 = new THREE.Mesh(portGeo, portMat);
+        p1.position.set(x, y, hullZ + 0.05);
+        p1.rotation.y = angle;
+        group.add(p1);
+        
+        const p2 = new THREE.Mesh(portGeo, portMat);
+        p2.position.set(x, y, -hullZ - 0.05);
+        p2.rotation.y = Math.PI - angle;
+        group.add(p2);
     }
+
+    // Top tier: Groups of 3 (gap on every 4th)
+    let pCount = 0;
+    for (let x = -60; x <= 60; x += 1.2) {
+        if (pCount++ % 4 !== 3) addPort(x, 22.5);
+    }
+    
+    // Middle tier: Continual spaced line
+    for (let x = -58; x <= 58; x += 1.6) addPort(x, 19.5);
+    
+    // Bottom tier: Widely spaced
+    for (let x = -56; x <= 56; x += 4.5) addPort(x, 16.0);
 
     // Decks
     function generateDeckVerts(geo, length, offsetX) {
         const pos = geo.attributes.position;
-        for(let i=0; i<pos.count; i++) {
+        for (let i = 0; i < pos.count; i++) {
             let localX = pos.getX(i);
             let globalX = localX + offsetX;
             let z = pos.getY(i);
@@ -132,7 +145,7 @@ export function initShip(scene) {
     // Split decks
     const splitDeck1 = new THREE.PlaneGeometry(70, 27, 32, 16); generateDeckVerts(splitDeck1, 140, 35);
     const m1 = new THREE.Mesh(splitDeck1, woodMat); m1.rotation.x = -Math.PI / 2; m1.position.set(35, 25.1, 0); m1.receiveShadow = true; m1.visible = false; splitHulls.push(m1); bowModelGroup.add(m1);
-    
+
     const splitDeck2 = new THREE.PlaneGeometry(70, 27, 32, 16); generateDeckVerts(splitDeck2, 140, -35);
     const m2 = new THREE.Mesh(splitDeck2, woodMat); m2.rotation.x = -Math.PI / 2; m2.position.set(-35, 25.1, 0); m2.receiveShadow = true; m2.visible = false; splitHulls.push(m2); sternModelGroup.add(m2);
 
@@ -156,34 +169,34 @@ export function initShip(scene) {
         mesh.position.set(cx, yLevel + (baseH / 2), 0);
         mesh.castShadow = true; mesh.receiveShadow = true;
         targetGroup.add(mesh);
-        
+
         const roof = new THREE.Mesh(new THREE.BoxGeometry(w, 0.2, depth + 0.4), woodMat);
         roof.position.set(cx, yLevel + baseH, 0);
         targetGroup.add(roof);
 
         const wndGeo = new THREE.PlaneGeometry(0.8, 1.2);
-        for(let x = minX + 2; x < maxX - 2; x += 2.5) {
-            if(Math.random() > 0.2) {
+        for (let x = minX + 2; x < maxX - 2; x += 2.5) {
+            if (Math.random() > 0.2) {
                 const w1 = new THREE.Mesh(wndGeo, windowMat);
-                w1.position.set(x, yLevel + baseH/2, depth/2 + 0.05); targetGroup.add(w1);
+                w1.position.set(x, yLevel + baseH / 2, depth / 2 + 0.05); targetGroup.add(w1);
                 const w2 = new THREE.Mesh(wndGeo, windowMat);
-                w2.position.set(x, yLevel + baseH/2, -depth/2 - 0.05); w2.rotation.y = Math.PI; targetGroup.add(w2);
+                w2.position.set(x, yLevel + baseH / 2, -depth / 2 - 0.05); w2.rotation.y = Math.PI; targetGroup.add(w2);
             }
         }
-        
+
         // Front Facing Windows (giving the stepped-back details)
         if (minX >= 0) { // Bow facing pieces
-            for (let z = -depth/2 + 1.5; z <= depth/2 - 1.5; z += 2.0) {
-                if(Math.random() > 0.1) {
+            for (let z = -depth / 2 + 1.5; z <= depth / 2 - 1.5; z += 2.0) {
+                if (Math.random() > 0.1) {
                     const fw = new THREE.Mesh(wndGeo, windowMat);
-                    fw.position.set(maxX + 0.05, yLevel + baseH/2, z);
+                    fw.position.set(maxX + 0.05, yLevel + baseH / 2, z);
                     fw.rotation.y = Math.PI / 2;
                     targetGroup.add(fw);
                 }
             }
         }
     };
-    
+
     // Wider superstructures
     buildTier(-40, 35, 4.5, 22, 25.1); // C-Deck
     buildTier(-35, 30, 4.0, 20, 29.6); // B-Deck
@@ -194,7 +207,7 @@ export function initShip(scene) {
     const bridgeFront = new THREE.Mesh(new THREE.BoxGeometry(0.5, 3, 10), woodMat);
     bridgeFront.position.set(22.5, 38.5, 0);
     bowModelGroup.add(bridgeFront);
-    
+
     // Bridge wing overhangs
     const bridgeWing = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.0, 14), whiteMat);
     bridgeWing.position.set(22.0, 38.0, 0);
@@ -208,7 +221,7 @@ export function initShip(scene) {
         const crBase = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 3), whiteMat);
         crBase.position.y = 1.5; cGrp.add(crBase);
         const crArm = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 8), whiteMat);
-        crArm.position.set(2.5, 4, 0); crArm.rotation.z = Math.PI/3; cGrp.add(crArm);
+        crArm.position.set(2.5, 4, 0); crArm.rotation.z = Math.PI / 3; cGrp.add(crArm);
         cGrp.position.set(x, 25.1, z);
         bowModelGroup.add(cGrp);
     }
@@ -224,17 +237,17 @@ export function initShip(scene) {
     const funnelCapGeo = new THREE.CylinderGeometry(1.65, 1.65, 2.5, 16);
     for (let i = 0; i < 4; i++) {
         const cx = 22 - (i * 16);
-        const cy = 44; 
+        const cy = 44;
         const tg = cx < 0 ? sternModelGroup : bowModelGroup;
-        
-        shipGroup.userData.funnels.push({x: cx, y: cy + 5, z: 0});
+
+        shipGroup.userData.funnels.push({ x: cx, y: cy + 5, z: 0 });
 
         const funnel = new THREE.Mesh(funnelObjGeo, funnelMat);
         funnel.position.set(cx, cy, 0);
         funnel.rotation.z = RAKE;
         funnel.castShadow = true;
         tg.add(funnel);
-        
+
         const fTop = new THREE.Mesh(funnelCapGeo, funnelTopMat);
         fTop.position.set(cx - 1.0, cy + 6, 0);
         fTop.rotation.z = RAKE;
@@ -242,7 +255,7 @@ export function initShip(scene) {
 
         const pipeGeo = new THREE.CylinderGeometry(0.2, 0.2, 15);
         if (i < 3) {
-            for(let side of [1.6, -1.6]) {
+            for (let side of [1.6, -1.6]) {
                 const p = new THREE.Mesh(pipeGeo, whiteMat);
                 p.position.set(cx + 1.2, cy, side);
                 p.rotation.z = RAKE;
@@ -253,8 +266,8 @@ export function initShip(scene) {
         // Funnel Rigging Cables tying to the deck
         const createCable = (vx, vy, vz) => {
             const geo = new THREE.BufferGeometry().setFromPoints([
-                new THREE.Vector3(cx, cy + 5, 0), 
-                new THREE.Vector3(vx, vy, vz)     
+                new THREE.Vector3(cx, cy + 5, 0),
+                new THREE.Vector3(vx, vy, vz)
             ]);
             tg.add(new THREE.Line(geo, wireMat));
         };
@@ -270,25 +283,25 @@ export function initShip(scene) {
     foremast.position.set(55, 40, 0);
     foremast.rotation.z = RAKE;
     bowModelGroup.add(foremast);
-    
+
     const mainmast = new THREE.Mesh(mastGeo, woodMat);
     mainmast.position.set(-60, 40, 0);
     mainmast.rotation.z = RAKE;
     sternModelGroup.add(mainmast);
 
     // Detailed Lifeboats
-    const davitMat = new THREE.MeshStandardMaterial({color: 0x444444, roughness: 0.8}); // Dark Iron
-    const canvasMat = new THREE.MeshStandardMaterial({color: 0xcca578}); // Tan canvas
-    
+    const davitMat = new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.8 }); // Dark Iron
+    const canvasMat = new THREE.MeshStandardMaterial({ color: 0xcca578 }); // Tan canvas
+
     function buildDetailedLifeboat() {
         const boatGrp = new THREE.Group();
-        const hullGeo = new THREE.SphereGeometry(1, 16, 12, 0, Math.PI*2, 0, Math.PI/2);
+        const hullGeo = new THREE.SphereGeometry(1, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2);
         hullGeo.scale(1.5, 0.5, 3.0);
         const b = new THREE.Mesh(hullGeo, whiteMat);
         b.rotation.x = Math.PI; // upside down so flat is top
         b.position.y = 0.5;
         boatGrp.add(b);
-        
+
         // Wooden rim for contrast
         const rim = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.1, 5.9), woodMat);
         rim.position.y = 0.5;
@@ -298,7 +311,7 @@ export function initShip(scene) {
         const cover = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.1, 5.8), canvasMat);
         cover.position.y = 0.55;
         boatGrp.add(cover);
-        
+
         // Davits (arms holding the boat) - Now Dark Iron so they stand out
         const davGeo = new THREE.CylinderGeometry(0.1, 0.1, 2.5);
         const lDavit = new THREE.Mesh(davGeo, davitMat); lDavit.position.set(0, -0.5, 2.8); lDavit.rotation.x = 0.4; boatGrp.add(lDavit);
@@ -307,8 +320,8 @@ export function initShip(scene) {
         return boatGrp;
     }
 
-    for (let side=-1; side<=1; side+=2) {
-        for (let j=0; j<8; j++) {
+    for (let side = -1; side <= 1; side += 2) {
+        for (let j = 0; j < 8; j++) {
             const bx = 15 - (j * 4.5);
             const boat = buildDetailedLifeboat();
             boat.position.set(bx, 37.0, side * 4.2);
@@ -328,13 +341,13 @@ export function initShip(scene) {
         grp.scale.set(scale, scale, scale);
         (x < 0 ? sternModelGroup : bowModelGroup).add(grp);
     }
-    
+
     function createSkylight(x, z, w, l) {
         const grp = new THREE.Group();
         const base = new THREE.Mesh(new THREE.BoxGeometry(w, 0.8, l), whiteMat);
         base.position.y = 0.4; grp.add(base);
-        const glass = new THREE.Mesh(new THREE.PlaneGeometry(w-0.4, l-0.4), new THREE.MeshBasicMaterial({color: 0x4488ff}));
-        glass.rotation.x = -Math.PI/2; glass.position.y = 0.81; grp.add(glass);
+        const glass = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.4, l - 0.4), new THREE.MeshBasicMaterial({ color: 0x4488ff }));
+        glass.rotation.x = -Math.PI / 2; glass.position.y = 0.81; grp.add(glass);
         grp.position.set(x, 38.25, z);
         (x < 0 ? sternModelGroup : bowModelGroup).add(grp);
     }
@@ -342,7 +355,7 @@ export function initShip(scene) {
     createSkylight(10, 0, 4, 3);
     createSkylight(-10, 0, 5, 4);
     createSkylight(-20, 0, 3, 3);
-    
+
     createVent(8, 2, 0.8, 1);
     createVent(8, -2, 0.8, -1);
     createVent(-5, 2.5, 1.2, 1);
@@ -357,9 +370,9 @@ export function initShip(scene) {
         seat.position.set(0, 0.2, 0); c.add(seat);
         return c;
     }
-    for (let side=-1; side<=1; side+=2) {
+    for (let side = -1; side <= 1; side += 2) {
         // A-Deck Chairs
-        for (let j=0; j<15; j++) {
+        for (let j = 0; j < 15; j++) {
             const charX = 20 - (j * 3);
             if (Math.random() > 0.4) {
                 const chair = buildDeckChair();
@@ -374,9 +387,9 @@ export function initShip(scene) {
     function buildPropeller(x, y, z, scale) {
         const p = new THREE.Group();
         const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 2), propMat);
-        hub.rotation.z = Math.PI/2; p.add(hub);
+        hub.rotation.z = Math.PI / 2; p.add(hub);
         const bladeGeo = new THREE.BoxGeometry(0.2, 3, 1);
-        for(let i=0; i<3; i++) {
+        for (let i = 0; i < 3; i++) {
             const blade = new THREE.Mesh(bladeGeo, propMat);
             const angle = (Math.PI * 2 / 3) * i;
             blade.rotation.x = angle;
@@ -387,9 +400,9 @@ export function initShip(scene) {
         p.position.set(x, y, z); p.scale.set(scale, scale, scale);
         sternModelGroup.add(p);
     }
-    buildPropeller(-68, -3, 0, 1.2); 
-    buildPropeller(-64, -1, 3.5, 0.8); 
-    buildPropeller(-64, -1, -3.5, 0.8); 
+    buildPropeller(-68, -3, 0, 1.2);
+    buildPropeller(-64, -1, 3.5, 0.8);
+    buildPropeller(-64, -1, -3.5, 0.8);
 
     scene.add(shipGroup);
     return shipGroup;
@@ -397,30 +410,30 @@ export function initShip(scene) {
 
 export function updateShip(shipGroup) {
     if (!game.running) return;
-    
+
     shipGroup.visible = game.currentRoom === 'deck';
 
     // Lateral Steering Physics & Visuals!
     if (game.phase === 'sailing' && game.ship.zPos !== undefined) {
         // Slide ship sideways slowly
         shipGroup.position.z += (game.ship.zPos - shipGroup.position.z) * 0.05;
-        
+
         // Add realistic tilt/yaw while turning
         const targetYaw = (game.ship.zPos - shipGroup.position.z) * 0.02; // Twist left/right
         shipGroup.rotation.y += (targetYaw - shipGroup.rotation.y) * 0.1;
-        
+
         // Bank (roll) slightly 
-        const targetRoll = (game.ship.zPos - shipGroup.position.z) * 0.005; 
+        const targetRoll = (game.ship.zPos - shipGroup.position.z) * 0.005;
         shipGroup.rotation.x += (targetRoll - shipGroup.rotation.x) * 0.1;
     }
 
     if (game.phase === 'sinking') {
         const timeSinceHit = game.time - game.ship.sinkStartTime;
-        
+
         // Tilt the global group slightly, increasing rapidly over time
-        game.ship.tilt = Math.min(0.8, (timeSinceHit / 60) * 0.4); 
+        game.ship.tilt = Math.min(0.8, (timeSinceHit / 60) * 0.4);
         game.ship.sinkY -= 0.005; // Drop entire ship down
-        
+
         shipGroup.rotation.z = game.ship.tilt;
         shipGroup.position.y = game.ship.sinkY;
 
@@ -436,20 +449,20 @@ export function updateShip(shipGroup) {
             // Bow group (+X) tip must plunge DOWN, so it requires negative Z rotation!
             bowGroup.rotation.z = Math.max(-1.5, bowGroup.rotation.z - 0.004);
             bowGroup.position.y -= 0.1;
-            
+
             // Stern group needs to rotate its -X tail UPWARD, which means negative Z rotation!
             game.ship.sternTilt = game.ship.sternTilt || 0;
             const targetTilt = -1.2; // roughly 70 degrees up into the air
-            game.ship.sternTilt += (targetTilt - game.ship.sternTilt) * 0.001; 
+            game.ship.sternTilt += (targetTilt - game.ship.sternTilt) * 0.001;
             sternGroup.rotation.z = game.ship.sternTilt;
 
             // Sink base 10x slower than previous (from 0.0005 to 0.00005)
-            game.ship.sternBase = game.ship.sternBase === undefined ? 12 : game.ship.sternBase - 0.00005; 
+            game.ship.sternBase = game.ship.sternBase === undefined ? 12 : game.ship.sternBase - 0.00005;
             game.ship.sternY = game.ship.sternY === undefined ? 0 : game.ship.sternY;
-            game.ship.sternY += (game.ship.sternBase - game.ship.sternY) * 0.002; 
-            
+            game.ship.sternY += (game.ship.sternBase - game.ship.sternY) * 0.002;
+
             // Bobbing formula 
-            sternGroup.position.y = game.ship.sternY + (Math.sin(timeSinceHit * 1.5) * 0.3); 
+            sternGroup.position.y = game.ship.sternY + (Math.sin(timeSinceHit * 1.5) * 0.3);
         }
     }
 
@@ -459,7 +472,7 @@ export function updateShip(shipGroup) {
     if (game.phase === 'sailing' && game.ship.speed > 0) {
         if (Math.random() < 0.3 && shipGroup.userData.funnels) {
             shipGroup.userData.funnels.forEach((f, idx) => {
-                const sMat = new THREE.MeshBasicMaterial({color: 0x222222, transparent: true, opacity: 0.8});
+                const sMat = new THREE.MeshBasicMaterial({ color: 0x222222, transparent: true, opacity: 0.8 });
                 const s = new THREE.Mesh(new THREE.SphereGeometry(1.5, 8, 8), sMat);
                 s.position.set(f.x, f.y, f.z);
                 shipGroup.add(s);

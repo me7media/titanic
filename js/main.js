@@ -2,7 +2,7 @@ import { game, ROOM_ORDER, ROOM_Y_POSITIONS } from './state.js';
 import { initAudio } from './audio.js';
 import { initEnvironment, updateEnvironment } from './environment.js';
 import { initShip, updateShip } from './ship.js';
-import { initCharacters } from './characters.js';
+import { initCharacters, updateCharacterPose } from './characters.js';
 import { initInteriors } from './interiors.js';
 import { bowGroup, shipGroup, sternGroup } from './ship.js';
 
@@ -178,10 +178,23 @@ function updateCamera() {
         moonLight.intensity = 2.0;
         
         if (game.controlMode === 'ship') {
-            const camX = Math.sin(game.time * 0.1) * 80;
-            const camZ = 60 + Math.cos(game.time * 0.1) * 30;
-            camera.position.lerp(new THREE.Vector3(camX, 25, camZ), 0.02);
-            camera.lookAt(0, 10, 0);
+            const isSteering = game.keys['ArrowUp'] || game.keys['w'] || 
+                               game.keys['ArrowDown'] || game.keys['s'] || 
+                               game.keys['ArrowLeft'] || game.keys['a'] || 
+                               game.keys['ArrowRight'] || game.keys['d'];
+                               
+            if (isSteering) {
+                // Tactical steering view: lock tightly behind stern (-150X) looking strictly ahead (+50X)
+                const targetCam = new THREE.Vector3(-150, 45, game.ship.zPos);
+                camera.position.lerp(targetCam, 0.08); // Responsive snap
+                camera.lookAt(50, 10, game.ship.zPos);
+            } else {
+                // Cinematic slow orbit
+                const camX = Math.sin(game.time * 0.1) * 110;
+                const camZ = game.ship.zPos + Math.cos(game.time * 0.1) * 70;
+                camera.position.lerp(new THREE.Vector3(camX, 35, camZ), 0.01);
+                camera.lookAt(0, 15, game.ship.zPos);
+            }
         } else if (game.controlMode === 'freecam') {
             if (game.keys['ArrowUp'] || game.keys['w']) camera.position.z -= 1.5;
             if (game.keys['ArrowDown'] || game.keys['s']) camera.position.z += 1.5;
@@ -222,8 +235,8 @@ function updateGameplay() {
 
     document.getElementById('mode-indicator').textContent = game.controlMode === 'ship' ? 'Корабель' : (game.controlMode === 'freecam' ? 'Вільна Камера' : game.players[game.controlMode].name);
 
-    if (game.keys['m'] || game.keys['M']) {
-        game.keys['m'] = false; 
+    if (game.keys['k'] || game.keys['K']) {
+        game.keys['k'] = false; game.keys['K'] = false;
         const idx = ROOM_ORDER.indexOf(game.currentRoom);
         game.currentRoom = ROOM_ORDER[(idx + 1) % ROOM_ORDER.length];
         showMessage(`Кімната: ${game.currentRoom.toUpperCase()}`);
@@ -262,13 +275,115 @@ function updateGameplay() {
     } else if (game.controlMode === 'jack' || game.controlMode === 'rose') {
         const activeMesh = game.controlMode === 'jack' ? jackMesh : roseMesh;
         activeMesh.userData = activeMesh.userData || { dirX: 0, dirZ: 0 };
-        activeMesh.userData.dirX = 0;
-        activeMesh.userData.dirZ = 0;
+        const spd = (game.keys['Shift'] ? 0.45 : 0.25) * (game.currentRoom === 'deck' ? 1.0 : 0.7);
 
-        if (game.keys['ArrowLeft'] || game.keys['a']) { activeMesh.position.x -= 0.4; activeMesh.userData.dirX = -1; }
-        if (game.keys['ArrowRight'] || game.keys['d']) { activeMesh.position.x += 0.4; activeMesh.userData.dirX = 1; }
-        if (game.keys['ArrowUp'] || game.keys['w']) { activeMesh.position.z -= 0.4; activeMesh.userData.dirZ = -1; }
-        if (game.keys['ArrowDown'] || game.keys['s']) { activeMesh.position.z += 0.4; activeMesh.userData.dirZ = 1; }
+        // Movement bounds (Deck vs Interior)
+        let cx = activeMesh.position.x;
+        let cz = activeMesh.position.z;
+        
+        let targetX = cx, targetZ = cz;
+        let isMoving = false;
+        
+        if (game.keys['ArrowUp'] || game.keys['w']) { targetZ -= spd; isMoving = true; activeMesh.userData.dirX = 0; activeMesh.userData.dirZ = -1; }
+        if (game.keys['ArrowDown'] || game.keys['s']) { targetZ += spd; isMoving = true; activeMesh.userData.dirX = 0; activeMesh.userData.dirZ = 1; }
+        if (game.keys['ArrowLeft'] || game.keys['a']) { targetX -= spd; isMoving = true; activeMesh.userData.dirX = -1; activeMesh.userData.dirZ = 0; }
+        if (game.keys['ArrowRight'] || game.keys['d']) { targetX += spd; isMoving = true; activeMesh.userData.dirX = 1; activeMesh.userData.dirZ = 0; }
+
+        if (isMoving) {
+            // Apply Movement directly (constraints handled safely by physics map downstream)
+            activeMesh.position.x = targetX;
+            activeMesh.position.z = targetZ;
+            
+            // Face movement direction
+            const tgtRot = Math.atan2(-activeMesh.userData.dirZ, activeMesh.userData.dirX);
+            activeMesh.rotation.y += (tgtRot - activeMesh.rotation.y) * 0.2;
+        }
+
+        // Gameplay Actions & Energy System
+        ['jack', 'rose'].forEach(p => {
+            const player = game.players[p];
+            
+            // Survival degradation
+            if (game.time % 2 < 0.02) { // tick roughly every 2 seconds
+                player.hunger = Math.max(0, player.hunger - (player.pose === 'lie' ? 0.05 : 0.2));
+                
+                // Warmth drops fast outdoors, especially if sinking
+                let dropWarmth = isInterior ? 0.05 : 0.5;
+                if (game.phase === 'sinking') dropWarmth *= 2;
+                player.warmth = Math.max(0, player.warmth - dropWarmth);
+
+                // Energy drops if hunger/warmth are low
+                if (player.hunger < 20 || player.warmth < 20) {
+                    player.energy = Math.max(0, player.energy - 1.0);
+                } else if (player.pose === 'lie') {
+                    player.energy = Math.min(100, player.energy + 2.0);
+                } else if (player.pose === 'sit') {
+                    player.energy = Math.min(100, player.energy + 1.0);
+                } else {
+                    player.energy = Math.max(0, player.energy - 0.2); // natural standing drain
+                }
+                
+                // Mood reflects aggregate state
+                const avgStatus = (player.hunger + player.warmth + player.energy) / 3;
+                player.mood += (avgStatus - player.mood) * 0.1;
+            }
+            
+            // Interaction overrides (Toggles)
+            if (game.controlMode === p) {
+                if (game.keys['f'] || game.keys['F']) { 
+                    player.pose = 'eat';
+                    player.hunger = Math.min(100, player.hunger + 1.0);
+                    player.energy = Math.min(100, player.energy + 0.5);
+                } else if (game.keys['x'] || game.keys['X']) { 
+                    game.keys['x'] = false; game.keys['X'] = false;
+                    player.pose = player.pose === 'lie' ? 'stand' : 'lie';
+                } else if (game.keys['c'] || game.keys['C']) { 
+                    game.keys['c'] = false; game.keys['C'] = false;
+                    player.pose = player.pose === 'bow' ? 'stand' : 'bow';
+                } else if (game.keys['z'] || game.keys['Z']) { 
+                    game.keys['z'] = false; game.keys['Z'] = false;
+                    player.pose = player.pose === 'sit' ? 'stand' : 'sit';
+                } else if (p === 'rose' && (game.keys['l'] || game.keys['L'])) { 
+                    const dist = Math.hypot(game.players.jack.x - game.players.rose.x, game.players.jack.z - game.players.rose.z);
+                    if (dist < 8) { 
+                        player.pose = 'fly';
+                        player.mood = 100; 
+                        game.players.jack.pose = 'fly'; 
+                    } else {
+                        player.pose = 'stand';
+                    }
+                } else {
+                    // Release F or L reverts to stand, others are strict toggles
+                    if (player.pose === 'eat' || player.pose === 'fly') player.pose = 'stand';
+                    // Auto-release from lay/sit/bow if user moves!
+                    if (isMoving && ['sit', 'lie', 'bow'].includes(player.pose)) player.pose = 'stand';
+                }
+                
+                // Breaking bounds update global state
+                player.x = activeMesh.position.x;
+                player.z = activeMesh.position.z;
+            }
+            
+            // Visual logic overrides (Jack handles fly sync manually based on distance)
+            if (p === 'jack' && game.players.rose.pose === 'fly') {
+                const dist = Math.hypot(game.players.jack.x - game.players.rose.x, game.players.jack.z - game.players.rose.z);
+                if (dist < 8) player.pose = 'fly';
+            }
+
+            // Update UI dynamically
+            const hBar = document.getElementById(p + '-hunger');
+            const wBar = document.getElementById(p + '-warmth');
+            const eBar = document.getElementById(p + '-energy');
+            const mBar = document.getElementById(p + '-mood');
+            if(hBar) hBar.style.width = player.hunger + '%';
+            if(wBar) wBar.style.width = player.warmth + '%';
+            if(eBar) eBar.style.width = player.energy + '%';
+            if(mBar) mBar.style.width = player.mood + '%';
+        });
+
+        // Apply updated animations to mesh
+        updateCharacterPose(jackMesh, game.players.jack.pose);
+        updateCharacterPose(roseMesh, game.players.rose.pose);
     }
 
     // Physics mapping for both characters
@@ -304,10 +419,10 @@ function updateGameplay() {
                 mesh.rotation.y = Math.atan2(mesh.userData.dirX, mesh.userData.dirZ);
             }
 
-            // Lifeboat Rescue Jump trigger (Jump off when at edge Z of Main or A deck)
+            // Lifeboat Rescue Jump trigger (Jump off when at edge of deck near X=10)
             if (game.phase === 'sinking') {
                 rescueBoat.visible = true;
-                if (mesh.position.z > bounds.zMax - 1 && Math.abs(mesh.position.x - 10) < 5) {
+                if (mesh.position.z > bounds.zMax - 2 && Math.abs(mesh.position.x - 10) < 15) {
                     playerState.saved = true;
                     rescueBoat.add(mesh);
                     mesh.position.set(key === 'jack' ? -2 : 2, 0.5, 0); // Position inside boat
