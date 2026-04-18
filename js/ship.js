@@ -466,9 +466,15 @@ export function updateShip(shipGroup) {
         }
     }
 
-    // Process Engine Smoke
     if (!shipGroup.userData.smokes) shipGroup.userData.smokes = [];
     const smokes = shipGroup.userData.smokes;
+
+    if (game.phase === 'sinking' && !game.ship.smokeCleared) {
+        smokes.forEach(s => shipGroup.remove(s));
+        smokes.length = 0;
+        game.ship.smokeCleared = true;
+    }
+
     if (game.phase === 'sailing' && game.ship.speed > 0.1) {
         if (Math.random() < 0.3 && shipGroup.userData.funnels) {
             shipGroup.userData.funnels.forEach((f, idx) => {
@@ -492,4 +498,68 @@ export function updateShip(shipGroup) {
             smokes.splice(i, 1);
         }
     }
+}
+
+export function buildDetailedLifeboat() {
+    const boatGrp = new THREE.Group();
+    
+    // Materials based on museum replica
+    const hullMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.8 });
+    const interiorMat = new THREE.MeshStandardMaterial({ color: 0xe3c28b, roughness: 0.9 });
+    const rimMat = new THREE.MeshStandardMaterial({ color: 0xa67c52, roughness: 0.7 });
+    const detailMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+
+    // 1. Smooth Curved Hull (Sphere scaled)
+    const hullGeo = new THREE.SphereGeometry(1, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+    hullGeo.scale(1.4, 0.8, 3.8);
+    const hull = new THREE.Mesh(hullGeo, hullMat);
+    hull.rotation.x = Math.PI; 
+    hull.position.y = 0.8;
+    boatGrp.add(hull);
+
+    // 2. Stem and Sternpost (Sharp vertical ends)
+    const postGeo = new THREE.BoxGeometry(0.1, 0.8, 0.2);
+    const stem = new THREE.Mesh(postGeo, hullMat);
+    stem.position.set(0, 0.4, 3.75);
+    boatGrp.add(stem);
+    const sternPost = stem.clone();
+    sternPost.position.z = -3.75;
+    boatGrp.add(sternPost);
+
+    // 3. Smooth Interior Lining (Slightly smaller sphere)
+    const intGeo = new THREE.SphereGeometry(0.98, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+    intGeo.scale(1.35, 0.75, 3.75);
+    const interior = new THREE.Mesh(intGeo, interiorMat);
+    interior.rotation.x = Math.PI;
+    interior.position.y = 0.82;
+    boatGrp.add(interior);
+
+    // 4. Tan Rim (Gunwale - using Torus for smooth curvature)
+    const rimGeo = new THREE.TorusGeometry(3.65, 0.1, 8, 48);
+    rimGeo.scale(0.38, 1.05, 1);
+    const rim = new THREE.Mesh(rimGeo, rimMat);
+    rim.rotation.x = Math.PI / 2;
+    rim.position.y = 0.82;
+    boatGrp.add(rim);
+
+    // 5. Thwarts (Seats - Tan Wood)
+    for (let z = -2.5; z <= 2.5; z += 1.25) {
+        const thwart = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.08, 0.4), rimMat);
+        thwart.position.y = 0.6;
+        thwart.position.z = z;
+        boatGrp.add(thwart);
+    }
+
+    // 6. Oarlocks (Small vertical pins)
+    const oarlockGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.2);
+    for (let side of [-1, 1]) {
+        for (let z = -2.8; z <= 2.8; z += 1.4) {
+            const oarlock = new THREE.Mesh(oarlockGeo, detailMat);
+            const wX = 1.35 * Math.sin(Math.acos(z / 4)); // Calculate width at Z
+            oarlock.position.set(side * wX, 0.85, z);
+            boatGrp.add(oarlock);
+        }
+    }
+
+    return boatGrp;
 }

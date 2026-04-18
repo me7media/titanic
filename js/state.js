@@ -11,6 +11,7 @@ export const game = {
     ship: {
         speed: 1.0,
         zPos: 0,
+        lastZ: 0,
         tilt: 0,
         sinkY: 0,
         sinkStartTime: 0,

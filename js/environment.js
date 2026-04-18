@@ -109,9 +109,9 @@ export function updateEnvironment(time) {
 
     oceanMesh.visible = game.currentRoom === 'deck';
 
-    // Icebergs logic based on T toggle pattern (Spawns after 3 minutes)
+    // Icebergs logic based on T toggle pattern (Spawns after 20 seconds)
     let spawnChance = game.icebergMode === 'double' ? 0.03 : 0.01;
-    if (time > 180 && game.icebergMode !== 'off' && Math.random() < spawnChance && game.phase === 'sailing') {
+    if (time > 20 && game.icebergMode !== 'off' && Math.random() < spawnChance && game.phase === 'sailing') {
         spawnIceberg();
     }
     
@@ -143,40 +143,48 @@ export function updateEnvironment(time) {
         }
     }
 
-    if (!game.running || game.phase !== 'sailing') return;
+    if (!game.running) return;
 
     // Ship Wake Physics Integration
+    const foamPosArr = foamGeo.attributes.position.array;
+    const dz = game.ship.zPos - (game.ship.lastZ || 0);
+
     if (oceanMesh.visible) {
-        const foamPosArr = foamGeo.attributes.position.array;
         for (let i = 0; i < 400; i++) {
             let idx = i * 3;
             if (foamLives[i] <= 0) {
-                if (Math.random() < 0.2 * game.ship.speed) { // Spawn rate scales with speed
-                    foamPosArr[idx] = 60 + Math.random() * 10; // Bow X position
+                if (game.phase === 'sailing' && Math.random() < 0.2 * game.ship.speed) { 
+                    foamPosArr[idx] = 60 + Math.random() * 10; 
                     const side = Math.random() > 0.5 ? 1 : -1;
-                    foamPosArr[idx+2] = side * (5 + Math.random() * 5); // Width Z relative to ship local center
-                    foamPosArr[idx+1] = 0; // Float on Y
+                    // Spawn relative to ship's current Z position
+                    foamPosArr[idx+2] = game.ship.zPos + side * (5 + Math.random() * 5); 
+                    foamPosArr[idx+1] = 0; 
                     foamLives[i] = 1.0;
                 }
             } else {
-                foamPosArr[idx] -= game.ship.speed * 0.8; // Move backwards relative to ship
-                foamPosArr[idx+2] += Math.sign(foamPosArr[idx+2]) * 0.1 * game.ship.speed; // Spread out V-shape
-                foamLives[i] -= 0.015; // Fade out timeframe
+                foamPosArr[idx] -= game.ship.speed * 0.8; 
+                // Apply ship lateral displacement to follow steering
+                foamPosArr[idx+2] += dz; 
+                // Spread out in V-shape relative to ship center
+                const relativeZ = foamPosArr[idx+2] - game.ship.zPos;
+                foamPosArr[idx+2] += Math.sign(relativeZ) * 0.1 * game.ship.speed; 
                 
-                // Bob on the new complex waves exactly where it is
+                foamLives[i] -= 0.015; 
+                
                 const vx = foamPosArr[idx];
-                const vz = foamPosArr[idx+2]; // corresponding to ocean 'vy'
+                const vz = foamPosArr[idx+2];
                 const w1 = Math.sin(vx * 0.05 + time * 2) * 1.5;
                 const w2 = Math.cos(vz * 0.05 + time * 1.5) * 1.5;
                 const w3 = Math.sin(vx * 0.15 - time * 3) * 0.5;
                 const w4 = Math.cos(vz * 0.15 + time * 2.5) * 0.5;
                 
-                if (foamLives[i] <= 0) foamPosArr[idx+1] = -100; // hide
-                else foamPosArr[idx+1] = w1 + w2 + w3 + w4 + 0.5; // Float slightly above wave
+                if (foamLives[i] <= 0) foamPosArr[idx+1] = -100;
+                else foamPosArr[idx+1] = w1 + w2 + w3 + w4 + 0.5;
             }
         }
         foamGeo.attributes.position.needsUpdate = true;
     }
+    game.ship.lastZ = game.ship.zPos;
 
     // Icebergs physical movement and collision logic
     if (Math.random() < 0.0003) spawnIceberg(); // Spawn rate 10x less
@@ -190,7 +198,22 @@ export function updateEnvironment(time) {
             let shipZ = game.ship && game.ship.zPos ? game.ship.zPos : 0;
             if (Math.abs(ice.position.z - shipZ) < 30) {
                 game.phase = 'sinking';
+                game.ship.speed = 0; // Stop propulsion immediately
                 game.ship.sinkStartTime = game.time;
+                
+                // Clear all current wakes/traces
+                wakes.forEach(w => {
+                    if (w.parent) w.parent.remove(w);
+                });
+                wakes.length = 0;
+                
+                // Clear foam immediately
+                for (let j = 0; j < 400; j++) {
+                    foamLives[j] = 0;
+                    foamPosArr[j * 3 + 1] = -100;
+                }
+                foamGeo.attributes.position.needsUpdate = true;
+                
                 console.warn('HIT ICEBERG!');
             }
         }
