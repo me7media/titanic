@@ -122,35 +122,35 @@ function initMobileControls() {
         });
 
         joystickManager.on('move', (evt, data) => {
-            // Reset directional keys
-            game.keys['w'] = false;
-            game.keys['a'] = false;
-            game.keys['s'] = false;
-            game.keys['d'] = false;
+            // Reset keys
+            ['w','a','s','d','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].forEach(k => game.keys[k] = false);
 
-            if (data.distance > 15) { // Dead zone
+            if (data.distance > 10) { // Dead zone
                 const angle = data.angle.degree;
-                // Up: 45-135, Right: 315-45, Down: 225-315, Left: 135-225
-                if (angle > 45 && angle <= 135) game.keys['w'] = true;
-                if (angle > 135 && angle <= 225) game.keys['a'] = true;
-                if (angle > 225 && angle <= 315) game.keys['s'] = true;
-                if (angle > 315 || angle <= 45) game.keys['d'] = true;
+                const isShip = game.controlMode === 'ship';
+                
+                // For ships, we want a tighter deadzone for steering and more deliberate vertical movement
+                const threshold = isShip ? 30 : 45; 
 
-                // Diagonal combinations
-                if (angle > 45 && angle <= 90) { game.keys['w'] = true; game.keys['d'] = true; }
-                if (angle > 90 && angle <= 135) { game.keys['w'] = true; game.keys['a'] = true; }
-                if (angle > 135 && angle <= 180) { game.keys['a'] = true; game.keys['w'] = true; }
-                if (angle > 180 && angle <= 225) { game.keys['a'] = true; game.keys['s'] = true; }
-                if (angle > 225 && angle <= 270) { game.keys['s'] = true; game.keys['a'] = true; }
-                if (angle > 270 && angle <= 315) { game.keys['s'] = true; game.keys['d'] = true; }
+                // Basic directional mapping
+                if (angle > threshold && angle <= (180 - threshold)) game.keys['w'] = true;
+                if (angle > (180 + threshold) && angle <= (360 - threshold)) game.keys['s'] = true;
+                if (angle > (90 + threshold) && angle <= (270 - threshold)) game.keys['a'] = true;
+                if (angle <= threshold || angle > (270 + threshold)) game.keys['d'] = true;
+
+                // For ship specifically: if moving horizontally, reduce sensitivity
+                // We'll also store the raw vector for potentially smoother physics in main.js
+                game.joystick = {
+                    x: data.vector.x,
+                    y: data.vector.y,
+                    dist: data.distance / 60 // normalized 0-1
+                };
             }
         });
 
         joystickManager.on('end', () => {
-            game.keys['w'] = false;
-            game.keys['a'] = false;
-            game.keys['s'] = false;
-            game.keys['d'] = false;
+            ['w','a','s','d','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].forEach(k => game.keys[k] = false);
+            game.joystick = { x: 0, y: 0, dist: 0 };
         });
     }
 

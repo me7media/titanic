@@ -1,0 +1,18 @@
+{
+    "name": "Titanic Legend",
+    "short_name": "Titanic",
+    "description": "Experience the Titanic's last voyage in 3D.",
+    "start_url": "./index.html",
+    "display": "standalone",
+    "background_color": "#050a14",
+    "theme_color": "#050a14",
+    "orientation": "landscape",
+    "icons": [
+        {
+            "src": "https://img.icons8.com/color/512/titanic.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ]
+}

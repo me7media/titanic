@@ -281,13 +281,22 @@ function updateGameplay() {
     // Move Logic
     if (game.controlMode === 'ship' && !isInterior) {
         if (game.phase === 'sailing') {
-            if (game.keys['ArrowUp'] || game.keys['w']) game.ship.speed = Math.min(3, game.ship.speed + 0.02);
-            if (game.keys['ArrowDown'] || game.keys['s']) game.ship.speed = Math.max(0, game.ship.speed - 0.02);
+            const j = game.joystick || { x: 0, y: 0, dist: 0 };
+            
+            // Proportional Speed (Analog feel)
+            if (j.y > 0.1) game.ship.speed = Math.min(3, game.ship.speed + 0.02 * j.y);
+            else if (j.y < -0.1) game.ship.speed = Math.max(0, game.ship.speed + 0.02 * j.y);
+            else if (game.keys['w']) game.ship.speed = Math.min(3, game.ship.speed + 0.02);
+            else if (game.keys['s']) game.ship.speed = Math.max(0, game.ship.speed - 0.02);
 
-            // Allow Ship Steering (A/D)
+            // Proportional Steering (Analog feel)
             game.ship.zPos = game.ship.zPos || 0;
-            if (game.keys['ArrowLeft'] || game.keys['a']) game.ship.zPos += 0.8;
-            if (game.keys['ArrowRight'] || game.keys['d']) game.ship.zPos -= 0.8;
+            if (Math.abs(j.x) > 0.1) {
+                game.ship.zPos -= j.x * 0.8; // Proportional to joystick tilt
+            } else {
+                if (game.keys['ArrowLeft'] || game.keys['a']) game.ship.zPos += 0.8;
+                if (game.keys['ArrowRight'] || game.keys['d']) game.ship.zPos -= 0.8;
+            }
         } else {
             game.ship.speed = 0; // Stop moving forward after hit
         }

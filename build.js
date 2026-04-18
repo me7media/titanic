@@ -31,12 +31,12 @@ try {
     process.exit(1);
 }
 
-// 3. Copy External Libraries (Three.js is too large to bundle efficiently without fine-tuning)
-console.log('📂 Copying core libraries...');
-const libs = ['js/three.min.js', 'js/nipplejs.min.js'];
-libs.forEach(lib => {
-    if (fs.existsSync(lib)) {
-        fs.copyFileSync(lib, path.join(SITE_DIR, lib));
+// 3. Copy Static Assets
+console.log('📂 Copying static assets...');
+const assets = ['style.css', 'manifest.json', 'js/three.min.js', 'js/nipplejs.min.js'];
+assets.forEach(asset => {
+    if (fs.existsSync(asset)) {
+        fs.copyFileSync(asset, path.join(SITE_DIR, asset));
     }
 });
 
