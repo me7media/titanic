@@ -29,6 +29,15 @@
 
 <body>
     <h1>Тестування Модулів та Сцени</h1>
+    
+    <div style="background: #2a2a2a; border: 1px solid #444; padding: 15px; margin-bottom: 20px;">
+        <h3>🛠️ Панель Розробника (Тестування Фізики)</h3>
+        <button id="break-btn" style="padding: 10px 20px; background: #ee4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+            Trigger Ship Break (B)
+        </button>
+        <p style="font-size: 12px; color: #888; margin-top: 10px;">Натисніть кнопку, щоб миттєво перевірити розлом корабля та поводження його частин.</p>
+    </div>
+
     <div id="results">Завантаження...</div>
 
     <script src="./js/three.min.js"></script>
@@ -239,6 +248,17 @@
         }
 
         runTests();
+
+        const breakBtn = document.getElementById('break-btn');
+        if (breakBtn) {
+            breakBtn.addEventListener('click', () => {
+                if (typeof window.testBreak === 'function') {
+                    window.testBreak();
+                } else {
+                    alert("Помилка: Функція testBreak не знайдена. Переконайтеся, що main.js завантажено.");
+                }
+            });
+        }
     </script>
 </body>
 

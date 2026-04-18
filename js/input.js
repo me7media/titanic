@@ -91,6 +91,10 @@ export function handleToggleKey(key) {
         game.players[game.controlMode].deckLevel = Math.min(4, (game.players[game.controlMode].deckLevel || 0) + 1);
         showMessageFn?.("Підйом на палубу вище");
     }
+
+    if (k === 'b') {
+        if (typeof window.testBreak === 'function') window.testBreak();
+    }
 }
 
 // ════════════════════════════════════════════

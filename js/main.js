@@ -10,6 +10,14 @@ import { initCharacters, updateCharacterPose } from './characters.js';
 import { initInteriors } from './interiors.js';
 import { bowGroup, shipGroup, sternGroup } from './ship.js';
 import { initInput, isMobile } from './input.js';
+ 
+// Developer tool: Manual break trigger (Global access for test.html and console)
+window.testBreak = () => {
+    game.phase = 'sinking';
+    game.ship.sinkStartTime = game.time - 61; // Jump past the fracture timer
+    if (typeof showMessage === 'function') showMessage("ТЕСТ РОЗЛОМУ АКТИВОВАНО!");
+    else console.warn("ТЕСТ РОЗЛОМУ АКТИВОВАНО!");
+};
 
 export let jackMesh, roseMesh;
 export let scene;
@@ -27,12 +35,11 @@ let moonLight;
  * Used for character positioning and physics boundaries on different decks of the ship.
  */
 const DECK_LEVELS = [
-    { y: 37.85, minX: -20, maxX: 15, zMax: 5.5 }, // Boat Deck
-    { y: 34.25, minX: -32, maxX: 23, zMax: 7 },   // A-Deck
-    { y: 30.15, minX: -38, maxX: 28, zMax: 8.5 }, // B-Deck
-    { y: 28.90, minX: -70, maxX: 70, zMax: 8.5, isSpecial: true }, // Poop/Forecastel Deck (Elevated ends)
-    { y: 25.35, minX: -45, maxX: 45, zMax: 9.5 }, // C-Deck (Between Poop/Forecastel)
-    { y: 22.15, minX: -70, maxX: 70, zMax: 13 },  // D-Deck
+    { name: 'Boat Deck', y: 40.34, minX: -20, maxX: 15, zMax: 5.5 }, 
+    { name: 'A-Deck', y: 37.71, minX: -32, maxX: 29, zMax: 7 },  
+    { name: 'B-Deck', y: 34.03, minX: -35, maxX: 25, zMax: 8.5 }, 
+    { name: 'Superstructure C', y: 29.3, minX: -42, maxX: 33.6, zMax: 9.5 },
+    { name: 'Main Deck', y: 25.1, minX: -68.5, maxX: 68.5, zMax: 9.5 },
 ];
 
 /**
@@ -332,13 +339,38 @@ function updateGameplay() {
             if (game.keys['ArrowRight'] || game.keys['d']) { targetX += spd; isMoving = true; activeMesh.userData.dirX = 1; activeMesh.userData.dirZ = 0; }
     
             if (isMoving) {
-                // Apply Movement directly (constraints handled safely by physics map downstream)
+                // Apply Movement
                 activeMesh.position.x = targetX;
                 activeMesh.position.z = targetZ;
     
                 // Face movement direction
                 const tgtRot = Math.atan2(-activeMesh.userData.dirZ, activeMesh.userData.dirX);
                 activeMesh.rotation.y += (tgtRot - activeMesh.rotation.y) * 0.2;
+
+                // Automatic Deck Switching (Step up/down)
+                const currentDeck = playerState.deckLevel || 0;
+                for (let i = 0; i < DECK_LEVELS.length; i++) {
+                    const deck = DECK_LEVELS[i];
+                    if (targetX >= deck.minX && targetX <= deck.maxX && Math.abs(targetZ) <= deck.zMax) {
+                        if (playerState.deckLevel !== i) {
+                            playerState.deckLevel = i;
+                            showMessage("Перехід на: " + deck.name);
+                        }
+                        break; 
+                    }
+                }
+            }
+            
+            // Manual Deck Switching (Q/E)
+            if (game.keys['q'] || game.keys['Q']) {
+                game.keys['q'] = false; game.keys['Q'] = false;
+                playerState.deckLevel = Math.min(DECK_LEVELS.length - 1, (playerState.deckLevel || 0) + 1);
+                showMessage("Палуба: " + DECK_LEVELS[playerState.deckLevel].name);
+            }
+            if (game.keys['e'] || game.keys['E']) {
+                game.keys['e'] = false; game.keys['E'] = false;
+                playerState.deckLevel = Math.max(0, (playerState.deckLevel || 0) - 1);
+                showMessage("Палуба: " + DECK_LEVELS[playerState.deckLevel].name);
             }
         }
     }
@@ -509,7 +541,19 @@ function updateGameplay() {
             if (bounds) {
                 mesh.position.x = Math.max(bounds.minX, Math.min(mesh.position.x, bounds.maxX));
                 mesh.position.z = Math.max(-bounds.zMax, Math.min(mesh.position.z, bounds.zMax));
-                mesh.position.y = bounds.y;
+                // Dynamic height for Main Deck based on ship's shear (curve)
+                let targetY = bounds.y;
+                if (bounds.name === 'Main Deck') {
+                    const x = mesh.position.x;
+                    if (x > 25) { // Bow shear
+                        const t = (x - 25) / (68.5 - 25);
+                        targetY += Math.pow(t, 2) * 5;
+                    } else if (x < -20) { // Stern shear
+                        const t = (Math.abs(x) - 20) / (68.5 - 20);
+                        targetY += Math.pow(t, 2) * 2;
+                    }
+                }
+                mesh.position.y = targetY;
             }
 
             if (mesh.userData && (mesh.userData.dirX !== 0 || mesh.userData.dirZ !== 0)) {
