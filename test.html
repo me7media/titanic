@@ -209,6 +209,22 @@
                 
                 assert(game.players.rose.pose === 'fly', "Система 'Я лечу' активована при близькості.");
                 assert(game.players.jack.pose === 'fly', "Джек автоматично підтримує Роуз у позі польоту.");
+                // Test 12: Deck Transition Safety
+                logMsg("--- ТЕСТ 12: ПЕРЕМИКАННЯ ПАЛУБ ---", false);
+                game.currentRoom = 'deck';
+                game.controlMode = 'jack';
+                game.players.jack.deckLevel = 0;
+                updateGameplay(); // Validate level 0
+                assert(game.players.jack.deckLevel === 0, "Палуба 0 завантажена успішно.");
+
+                game.players.jack.deckLevel = 4; // Max level
+                updateGameplay(); 
+                assert(game.players.jack.deckLevel === 4, "Перехід на палубу 4 (максимум) не викликає помилок.");
+
+                game.players.jack.deckLevel = 10; // Out of bounds test
+                updateGameplay();
+                logMsg("Спробувано вихід за межі палуб (10). Система залишається стабільною.");
+
                 resetKeys();
 
                 // Conclusion

@@ -27,8 +27,11 @@ let moonLight;
  * Used for character positioning and physics boundaries on different decks of the ship.
  */
 const DECK_LEVELS = [
-    { y: 27.35, minX: -68, maxX: 68, zMax: 13 }, // Main Deck
-// ...
+    { y: 37.35, minX: -60, maxX: 40, zMax: 10 }, // Boat Deck (Top)
+    { y: 33.85, minX: -65, maxX: 65, zMax: 12 }, // A-Deck
+    { y: 29.85, minX: -68, maxX: 68, zMax: 13 }, // B-Deck
+    { y: 25.35, minX: -68, maxX: 68, zMax: 13 }, // C-Deck
+    { y: 22.35, minX: -68, maxX: 68, zMax: 13 }, // D-Deck
 ];
 
 /**
@@ -499,12 +502,14 @@ function updateGameplay() {
             // Only parent if target exists (3D scene ready)
             if (target && mesh.parent !== target) { target.add(mesh); }
 
-            const dLevel = playerState.deckLevel || 0;
+            const dLevel = Math.max(0, Math.min(playerState.deckLevel || 0, DECK_LEVELS.length - 1));
             const bounds = DECK_LEVELS[dLevel];
 
-            mesh.position.x = Math.max(bounds.minX, Math.min(mesh.position.x, bounds.maxX));
-            mesh.position.z = Math.max(-bounds.zMax, Math.min(mesh.position.z, bounds.zMax));
-            mesh.position.y = bounds.y;
+            if (bounds) {
+                mesh.position.x = Math.max(bounds.minX, Math.min(mesh.position.x, bounds.maxX));
+                mesh.position.z = Math.max(-bounds.zMax, Math.min(mesh.position.z, bounds.zMax));
+                mesh.position.y = bounds.y;
+            }
 
             if (mesh.userData && (mesh.userData.dirX !== 0 || mesh.userData.dirZ !== 0)) {
                 mesh.rotation.y = Math.atan2(mesh.userData.dirX, mesh.userData.dirZ);
