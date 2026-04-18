@@ -469,7 +469,7 @@ export function updateShip(shipGroup) {
     // Process Engine Smoke
     if (!shipGroup.userData.smokes) shipGroup.userData.smokes = [];
     const smokes = shipGroup.userData.smokes;
-    if (game.phase === 'sailing' && game.ship.speed > 0) {
+    if (game.phase === 'sailing' && game.ship.speed > 0.1) {
         if (Math.random() < 0.3 && shipGroup.userData.funnels) {
             shipGroup.userData.funnels.forEach((f, idx) => {
                 const sMat = new THREE.MeshBasicMaterial({ color: 0x222222, transparent: true, opacity: 0.8 });

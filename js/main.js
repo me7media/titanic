@@ -151,7 +151,7 @@ function startGame() {
     setTimeout(() => {
         document.getElementById('start-screen').style.display = 'none';
         game.running = true;
-        showMessage("Гра розпочата. Натискай '1', '2', '3' для керування. 'M' для кімнат.");
+        showMessage("Гра розпочата. Натискай '1', '2', '3' для керування. 'K' для кімнат.");
     }, 800);
 }
 
@@ -266,7 +266,7 @@ function updateGameplay() {
     // Move Logic
     if (game.controlMode === 'ship' && !isInterior) {
         if (game.keys['ArrowUp'] || game.keys['w']) game.ship.speed = Math.min(3, game.ship.speed + 0.02);
-        if (game.keys['ArrowDown'] || game.keys['s']) game.ship.speed = Math.max(0.5, game.ship.speed - 0.02);
+        if (game.keys['ArrowDown'] || game.keys['s']) game.ship.speed = Math.max(0, game.ship.speed - 0.02);
         
         // Allow Ship Steering (A/D)
         game.ship.zPos = game.ship.zPos || 0;
@@ -444,5 +444,9 @@ function gameLoop() {
     renderer.render(scene, camera);
 }
 
-// Window load init
-init();
+export { updateGameplay, init };
+
+// Window load init (only if not in test mode)
+if (!(window.location.pathname.includes('test.html'))) {
+    init();
+}

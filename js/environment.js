@@ -1,4 +1,5 @@
 import { game } from './state.js';
+import { shipGroup } from './ship.js';
 
 let oceanMesh;
 export const icebergs = [];
@@ -35,7 +36,9 @@ export function initEnvironment(scene) {
     foamGeo.setAttribute('position', new THREE.Float32BufferAttribute(foamPos, 3));
     const foamMat = new THREE.PointsMaterial({ color: 0xeef5ff, size: 2.0, transparent: true, opacity: 0.6 });
     const foam = new THREE.Points(foamGeo, foamMat);
-    scene.add(foam);
+    // Add to shipGroup so it follows steering Z
+    if (shipGroup) shipGroup.add(foam);
+    else scene.add(foam);
 
     // Stars
     const starGeo = new THREE.BufferGeometry();
@@ -54,21 +57,32 @@ export function initEnvironment(scene) {
 }
 
 function spawnIceberg() {
-    // Make icebergs ~3x smaller
-    const geo = new THREE.DodecahedronGeometry(5 + Math.random() * 5); 
-    geo.scale(1, Math.random() * 2 + 1, 1);
+    // Random base size
+    const size = 4 + Math.random() * 8;
+    const geo = new THREE.DodecahedronGeometry(size); 
+    
+    // Random proportions (some sharp/tall, some flat/wide)
+    const scaleX = 0.8 + Math.random() * 1.5;
+    const scaleY = 0.5 + Math.random() * 2.5;
+    const scaleZ = 0.8 + Math.random() * 1.5;
+    geo.scale(scaleX, scaleY, scaleZ);
+    
     const mat = new THREE.MeshStandardMaterial({ 
-        color: 0xaaddff, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.9
+        color: 0xaaddff, roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.95
     });
     const mesh = new THREE.Mesh(geo, mat);
     
-    // 20% chance to specifically target the ship's center line
-    const zPos = Math.random() > 0.8 ? 0 : (Math.random() - 0.5) * 150;
-    mesh.position.set(400, -5, zPos);
+    // Spawn across the whole visible ocean Z-span (-250 to 250)
+    const zPos = (Math.random() - 0.5) * 500;
+    mesh.position.set(400, -size * 0.4, zPos); // partially submerged
     
-    for(let i=0; i<3; i++) {
-        const chunk = new THREE.Mesh(new THREE.DodecahedronGeometry(5 + Math.random() * 10), mat);
-        chunk.position.set((Math.random()-0.5)*15, (Math.random()-0.5)*10, (Math.random()-0.5)*15);
+    // Add 2-4 sub-chunks for more complex silhouettes
+    const chunkCount = 2 + Math.floor(Math.random() * 3);
+    for(let i=0; i < chunkCount; i++) {
+        const cSize = size * (0.4 + Math.random() * 0.6);
+        const chunk = new THREE.Mesh(new THREE.DodecahedronGeometry(cSize), mat);
+        chunk.position.set((Math.random()-0.5)*size*1.2, (Math.random()-0.5)*size, (Math.random()-0.5)*size*1.2);
+        chunk.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
         mesh.add(chunk);
     }
     mesh.castShadow = true; mesh.receiveShadow = true;
@@ -96,20 +110,22 @@ export function updateEnvironment(time) {
     oceanMesh.visible = game.currentRoom === 'deck';
 
     // Icebergs logic based on T toggle pattern (Spawns after 3 minutes)
-    let spawnChance = game.icebergMode === 'double' ? 0.01 : 0.005;
+    let spawnChance = game.icebergMode === 'double' ? 0.03 : 0.01;
     if (time > 180 && game.icebergMode !== 'off' && Math.random() < spawnChance && game.phase === 'sailing') {
         spawnIceberg();
     }
     
     // Ship Wake Trail Logic
-    if (game.phase === 'sailing' && game.ship && game.ship.speed > 0.5) {
+    if (game.phase === 'sailing' && game.ship && game.ship.speed > 0.05) {
         if (Math.random() < 0.4) {
             const wakeMat = new THREE.MeshBasicMaterial({color: 0xffffff, transparent: true, opacity: 0.6});
             const wake = new THREE.Mesh(wakeGeo, wakeMat);
             wake.rotation.x = -Math.PI / 2;
             const zSpread = (Math.random() - 0.5) * 30; // Spread across stern width
+            // Relative to ship center (stern is at X ~ -135)
             wake.position.set(-135, 0.5, zSpread); 
-            sceneRef.add(wake);
+            if (shipGroup) shipGroup.add(wake);
+            else sceneRef.add(wake);
             wakes.push(wake);
         }
     }
@@ -138,7 +154,7 @@ export function updateEnvironment(time) {
                 if (Math.random() < 0.2 * game.ship.speed) { // Spawn rate scales with speed
                     foamPosArr[idx] = 60 + Math.random() * 10; // Bow X position
                     const side = Math.random() > 0.5 ? 1 : -1;
-                    foamPosArr[idx+2] = side * (5 + Math.random() * 5); // Width Z
+                    foamPosArr[idx+2] = side * (5 + Math.random() * 5); // Width Z relative to ship local center
                     foamPosArr[idx+1] = 0; // Float on Y
                     foamLives[i] = 1.0;
                 }
