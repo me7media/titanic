@@ -27,11 +27,12 @@ let moonLight;
  * Used for character positioning and physics boundaries on different decks of the ship.
  */
 const DECK_LEVELS = [
-    { y: 37.85, minX: -20, maxX: 15, zMax: 5.5 }, // Boat Deck (Narrowest)
+    { y: 37.85, minX: -20, maxX: 15, zMax: 5.5 }, // Boat Deck
     { y: 34.25, minX: -32, maxX: 23, zMax: 7 },   // A-Deck
     { y: 30.15, minX: -38, maxX: 28, zMax: 8.5 }, // B-Deck
-    { y: 25.35, minX: -45, maxX: 33, zMax: 9.5 }, // C-Deck
-    { y: 22.15, minX: -70, maxX: 70, zMax: 13 },  // D-Deck (Full Hull)
+    { y: 28.90, minX: -70, maxX: 70, zMax: 8.5, isSpecial: true }, // Poop/Forecastel Deck (Elevated ends)
+    { y: 25.35, minX: -45, maxX: 45, zMax: 9.5 }, // C-Deck (Between Poop/Forecastel)
+    { y: 22.15, minX: -70, maxX: 70, zMax: 13 },  // D-Deck
 ];
 
 /**

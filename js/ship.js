@@ -184,53 +184,92 @@ export function initShip(scene) {
 
     // Superstructures
     const buildTier = (minX, maxX, baseH, depth, yLevel) => {
-        if (minX < 0 && maxX > 0) {
-            buildTier(minX, 0, baseH, depth, yLevel); // Stern portion
-            buildTier(0, maxX, baseH, depth, yLevel);  // Bow portion
-            return;
-        }
-        const w = maxX - minX;
-        const cx = (minX + maxX) / 2;
-        const targetGroup = cx < 0 ? sternModelGroup : bowModelGroup;
+        const createSegment = (sX, eX) => {
+            if (sX >= eX) return;
+            const w = eX - sX;
+            const cx = (sX + eX) / 2;
+            const targetGroup = cx < 0 ? sternModelGroup : bowModelGroup;
 
-        const geo = new THREE.BoxGeometry(w, baseH, depth);
-        const mesh = new THREE.Mesh(geo, whiteMat);
-        mesh.position.set(cx, yLevel + (baseH / 2), 0);
-        mesh.castShadow = true; mesh.receiveShadow = true;
-        targetGroup.add(mesh);
-
-        const roof = new THREE.Mesh(new THREE.BoxGeometry(w, 0.2, depth + 0.4), woodMat);
-        roof.position.set(cx, yLevel + baseH, 0);
-        targetGroup.add(roof);
-
-        const wndGeo = new THREE.PlaneGeometry(0.8, 1.2);
-        for (let x = minX + 2; x < maxX - 2; x += 2.5) {
-            if (Math.random() > 0.2) {
-                const w1 = new THREE.Mesh(wndGeo, windowMat);
-                w1.position.set(x, yLevel + baseH / 2, depth / 2 + 0.05); targetGroup.add(w1);
-                const w2 = new THREE.Mesh(wndGeo, windowMat);
-                w2.position.set(x, yLevel + baseH / 2, -depth / 2 - 0.05); w2.rotation.y = Math.PI; targetGroup.add(w2);
+            // Geometry with more segments along X and Z to allow for curvature
+            const geo = new THREE.BoxGeometry(w, baseH, depth, 16, 1, 8);
+            const pos = geo.attributes.position;
+            
+            for (let i = 0; i < pos.count; i++) {
+                let localX = pos.getX(i);
+                let localZ = pos.getZ(i);
+                let globalX = localX + cx;
+                
+                // Determine the hull width at this exact X and Y
+                const hullZ = getHullZ(globalX, yLevel, depth / 2);
+                
+                // Scale the vertex Z to fit within the hull taper
+                // If localZ is max (depth/2), it should become hullZ
+                const zRatio = localZ / (depth/2);
+                pos.setZ(i, zRatio * hullZ);
             }
-        }
+            geo.computeVertexNormals();
 
-        // Front Facing Windows (giving the stepped-back details)
-        if (minX >= 0) { // Bow facing pieces
-            for (let z = -depth / 2 + 1.5; z <= depth / 2 - 1.5; z += 2.0) {
-                if (Math.random() > 0.1) {
+            const mesh = new THREE.Mesh(geo, whiteMat);
+            mesh.position.set(cx, yLevel + (baseH / 2), 0);
+            mesh.castShadow = true; mesh.receiveShadow = true;
+            targetGroup.add(mesh);
+
+            // Roof also needs to be tapered
+            const rGeo = new THREE.BoxGeometry(w, 0.2, depth + 0.4, 16, 1, 8);
+            const rPos = rGeo.attributes.position;
+            for (let i = 0; i < rPos.count; i++) {
+                let globalX = rPos.getX(i) + cx;
+                let zRatio = rPos.getZ(i) / ((depth + 0.4) / 2);
+                const hullZ = getHullZ(globalX, yLevel + baseH, (depth + 0.4) / 2);
+                rPos.setZ(i, zRatio * hullZ);
+            }
+            rGeo.computeVertexNormals();
+            const roof = new THREE.Mesh(rGeo, woodMat);
+            roof.position.set(cx, yLevel + baseH, 0);
+            targetGroup.add(roof);
+
+            const wndGeo = new THREE.PlaneGeometry(0.8, 1.2);
+            for (let x = sX + 2; x < eX - 2; x += 3.0) {
+                if (Math.random() > 0.2) {
+                    const hZ = getHullZ(x, yLevel + baseH / 2, depth / 2) + 0.05;
+                    const w1 = new THREE.Mesh(wndGeo, windowMat);
+                    w1.position.set(x, yLevel + baseH / 2, hZ); targetGroup.add(w1);
+                    const w2 = new THREE.Mesh(wndGeo, windowMat);
+                    w2.position.set(x, yLevel + baseH / 2, -hZ); w2.rotation.y = Math.PI; targetGroup.add(w2);
+                }
+            }
+
+            // Front Facing Windows (Only for true end pieces)
+            if (eX === 69 || eX === 30 || eX === 25 || eX === 20 || eX === 15) {
+                const endHullZ = getHullZ(eX, yLevel, depth/2);
+                for (let z = -endHullZ + 1; z <= endHullZ - 1; z += 2.0) {
                     const fw = new THREE.Mesh(wndGeo, windowMat);
-                    fw.position.set(maxX + 0.05, yLevel + baseH / 2, z);
+                    fw.position.set(eX + 0.05, yLevel + baseH / 2, z);
                     fw.rotation.y = Math.PI / 2;
                     targetGroup.add(fw);
                 }
             }
+        };
+
+        if (minX < 0 && maxX > 0) {
+            createSegment(minX, 0); 
+            createSegment(0, maxX);  
+        } else {
+            createSegment(minX, maxX);
         }
     };
 
-    // Tapered superstructures: Reduced depth significantly to fit the hull's curve
+    // Superstructures (Heights +5%, Y shifted to stack correctly)
     buildTier(-42, 30, 4.73, 18, 25.1); // C-Deck
     buildTier(-35, 25, 4.2, 16, 29.83);  // B-Deck
     buildTier(-30, 20, 3.68, 13, 34.03); // A-Deck
     buildTier(-20, 15, 2.63, 11, 37.71); // Boat Deck
+    
+    // Poop Deck (Raised stern, smaller and more rounded)
+    buildTier(-69, -55, 3.8, 12, 25.1); 
+    
+    // Forecastel Deck (Raised bow, sharp and powerful)
+    buildTier(45, 69, 3.8, 13, 25.1);
 
     // Bridge & Wings
     const bridgeFront = new THREE.Mesh(new THREE.BoxGeometry(0.5, 3, 10), woodMat);
@@ -261,7 +300,7 @@ export function initShip(scene) {
     // Funnels
     if (!shipGroup.userData) shipGroup.userData = {};
     shipGroup.userData.funnels = [];
-    const RAKE = -0.15;
+    const RAKE = 0.15; // Positive rake tilts towards the stern (-X)
     const funnelObjGeo = new THREE.CylinderGeometry(1.6, 1.6, 12, 16);
     const funnelCapGeo = new THREE.CylinderGeometry(1.65, 1.65, 2.5, 16);
     for (let i = 0; i < 4; i++) {
@@ -317,6 +356,35 @@ export function initShip(scene) {
     mainmast.position.set(-60, 40, 0);
     mainmast.rotation.z = RAKE;
     sternModelGroup.add(mainmast);
+
+    // Marconi Antennas (Long cables between tilted masts)
+    const antennaCount = 4;
+    const mastH = 45;
+    const offX = -Math.sin(RAKE) * (mastH / 2); // ~ -3.35 (towards stern)
+    const offY = Math.cos(RAKE) * (mastH / 2);  // ~ 22.2
+    
+    // Tips are at: Fore(55 + offX, 40 + offY), Main(-60 + offX, 40 + offY)
+    for (let i = 0; i < antennaCount; i++) {
+        const offsetZ = (i - (antennaCount-1)/2) * 0.8;
+        const antennaGeo = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(55 + offX, 40 + offY - 1, offsetZ),
+            new THREE.Vector3(-60 + offX, 40 + offY - 1, offsetZ)
+        ]);
+        shipGroup.add(new THREE.Line(antennaGeo, wireMat));
+    }
+    
+    // Standing Rigging for Masts (Fixed attachment points)
+    for (let side of [-1, 1]) {
+        // Foremast stays (to tip)
+        const fTip = new THREE.Vector3(55 + offX, 40 + offY, 0);
+        bowModelGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([fTip, new THREE.Vector3(45, 25, side * 12)]), wireMat));
+        bowModelGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([fTip, new THREE.Vector3(65, 25, side * 8)]), wireMat));
+        
+        // Mainmast stays (to tip)
+        const mTip = new THREE.Vector3(-60 + offX, 40 + offY, 0);
+        sternModelGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([mTip, new THREE.Vector3(-50, 25, side * 12)]), wireMat));
+        sternModelGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([mTip, new THREE.Vector3(-70, 25, side * 6)]), wireMat));
+    }
 
     // Detailed Lifeboats
     const davitMat = new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.8 }); // Dark Iron
