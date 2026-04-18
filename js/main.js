@@ -1,4 +1,4 @@
-import { game, ROOM_ORDER, ROOM_Y_POSITIONS } from './state.js';
+import { game, ROOM_ORDER, ROOM_Y_POSITIONS, STATIONS } from './state.js';
 import { initAudio } from './audio.js';
 import { initEnvironment, updateEnvironment } from './environment.js';
 import { initShip, updateShip, buildDetailedLifeboat } from './ship.js';
@@ -305,29 +305,40 @@ function updateGameplay() {
         }
     } else if (game.controlMode === 'jack' || game.controlMode === 'rose') {
         const activeMesh = game.controlMode === 'jack' ? jackMesh : roseMesh;
-        activeMesh.userData = activeMesh.userData || { dirX: 0, dirZ: 0 };
-        const spd = (game.keys['Shift'] ? 0.45 : 0.25) * (game.currentRoom === 'deck' ? 1.0 : 0.7);
-
-        // Movement bounds (Deck vs Interior)
-        let cx = activeMesh.position.x;
-        let cz = activeMesh.position.z;
-
-        let targetX = cx, targetZ = cz;
-        let isMoving = false;
-
-        if (game.keys['ArrowUp'] || game.keys['w']) { targetZ -= spd; isMoving = true; activeMesh.userData.dirX = 0; activeMesh.userData.dirZ = -1; }
-        if (game.keys['ArrowDown'] || game.keys['s']) { targetZ += spd; isMoving = true; activeMesh.userData.dirX = 0; activeMesh.userData.dirZ = 1; }
-        if (game.keys['ArrowLeft'] || game.keys['a']) { targetX -= spd; isMoving = true; activeMesh.userData.dirX = -1; activeMesh.userData.dirZ = 0; }
-        if (game.keys['ArrowRight'] || game.keys['d']) { targetX += spd; isMoving = true; activeMesh.userData.dirX = 1; activeMesh.userData.dirZ = 0; }
-
-        if (isMoving) {
-            // Apply Movement directly (constraints handled safely by physics map downstream)
-            activeMesh.position.x = targetX;
-            activeMesh.position.z = targetZ;
-
-            // Face movement direction
-            const tgtRot = Math.atan2(-activeMesh.userData.dirZ, activeMesh.userData.dirX);
-            activeMesh.rotation.y += (tgtRot - activeMesh.rotation.y) * 0.2;
+        
+        if (activeMesh) {
+            activeMesh.userData = activeMesh.userData || { dirX: 0, dirZ: 0 };
+            
+            let spd = (game.keys['Shift'] ? 0.45 : 0.25) * (game.currentRoom === 'deck' ? 1.0 : 0.7);
+            
+            const playerState = game.players[game.controlMode];
+            // Gameplay Penalties:
+            if (playerState.mood < 30) spd *= 0.5; // Slow down if sad
+            if (playerState.hunger < 10) spd = 0.25; // Cannot run if starving
+            if (playerState.energy < 20) spd *= 0.8; // Fatigue penalty
+            
+    
+            // Movement bounds (Deck vs Interior)
+            let cx = activeMesh.position.x;
+            let cz = activeMesh.position.z;
+    
+            let targetX = cx, targetZ = cz;
+            let isMoving = false;
+    
+            if (game.keys['ArrowUp'] || game.keys['w']) { targetZ -= spd; isMoving = true; activeMesh.userData.dirX = 0; activeMesh.userData.dirZ = -1; }
+            if (game.keys['ArrowDown'] || game.keys['s']) { targetZ += spd; isMoving = true; activeMesh.userData.dirX = 0; activeMesh.userData.dirZ = 1; }
+            if (game.keys['ArrowLeft'] || game.keys['a']) { targetX -= spd; isMoving = true; activeMesh.userData.dirX = -1; activeMesh.userData.dirZ = 0; }
+            if (game.keys['ArrowRight'] || game.keys['d']) { targetX += spd; isMoving = true; activeMesh.userData.dirX = 1; activeMesh.userData.dirZ = 0; }
+    
+            if (isMoving) {
+                // Apply Movement directly (constraints handled safely by physics map downstream)
+                activeMesh.position.x = targetX;
+                activeMesh.position.z = targetZ;
+    
+                // Face movement direction
+                const tgtRot = Math.atan2(-activeMesh.userData.dirZ, activeMesh.userData.dirX);
+                activeMesh.rotation.y += (tgtRot - activeMesh.rotation.y) * 0.2;
+            }
         }
     }
 
@@ -339,14 +350,32 @@ function updateGameplay() {
 
         const player = game.players[p];
         const isPlayerInterior = game.currentRoom !== 'deck' || player.saved;
+        const mesh = p === 'jack' ? jackMesh : roseMesh;
 
-        // Survival degradation
+        // 1. Interactive Zones Proximity Check
+        const station = STATIONS[game.currentRoom];
+        let currentStationType = null;
+        if (station) {
+            const px = mesh ? mesh.position.x : player.x;
+            const pz = mesh ? mesh.position.z : player.z;
+            const distToStation = Math.hypot(px - station.x, pz - station.z);
+            if (distToStation < station.radius) {
+                currentStationType = station.type;
+                // Passive Area Effects (e.g. Lounge Fireplace)
+                if (currentStationType === 'heat') {
+                    player.warmth = Math.min(100, player.warmth + 1);
+                    player.mood = Math.min(100, player.mood + 0.5);
+                }
+            }
+        }
+
+        // 2. Survival degradation
         if (game.time % 2 < 0.02) {
             player.hunger = Math.max(0, player.hunger - (player.pose === 'lie' ? 0.05 : 0.2));
 
             // Warmth drops fast outdoors, especially if sinking
             let dropWarmth = isPlayerInterior ? 0.05 : 0.5;
-            if (game.phase === 'sinking') dropWarmth *= 2;
+            if (game.phase === 'sinking' && !isPlayerInterior) dropWarmth *= 4; // CRITICAL COLD IN WATER/DECK
             player.warmth = Math.max(0, player.warmth - dropWarmth);
 
             // Energy drops if hunger/warmth are low
@@ -364,16 +393,28 @@ function updateGameplay() {
             player.mood += (avgStatus - player.mood) * 0.1;
         }
 
+        // 3. Status Alerts (Atmospheric callouts)
+        if (player.warmth < 15 && Math.random() < 0.01) showMessage(`${player.name}: Я замерзаю...`);
+        if (player.hunger < 15 && Math.random() < 0.01) showMessage(`${player.name}: Потрібно поїсти...`);
+        if (player.energy < 15 && Math.random() < 0.01) showMessage(`${player.name}: Сил більше немає...`);
+
         // Interaction overrides (Only if controlled)
         if (game.controlMode === p) {
             const mesh = p === 'jack' ? jackMesh : roseMesh;
             if (game.keys['f'] || game.keys['F']) {
-                player.pose = 'eat';
-                player.hunger = Math.min(100, player.hunger + 1.0);
-                player.energy = Math.min(100, player.energy + 0.5);
+                if (currentStationType === 'food') {
+                    player.pose = 'eat';
+                    player.hunger = Math.min(100, player.hunger + 1.0);
+                } else if (game.time % 1 < 0.1) {
+                    showMessage("Потрібно підійти до столу щоб поїсти");
+                }
             } else if (game.keys['x'] || game.keys['X']) {
                 game.keys['x'] = false; game.keys['X'] = false;
-                player.pose = player.pose === 'lie' ? 'stand' : 'lie';
+                if (currentStationType === 'sleep') {
+                    player.pose = player.pose === 'lie' ? 'stand' : 'lie';
+                } else {
+                    showMessage("Відпочивати можна лише у каюті біля ліжка");
+                }
             } else if (game.keys['c'] || game.keys['C']) {
                 game.keys['c'] = false; game.keys['C'] = false;
                 player.pose = player.pose === 'bow' ? 'stand' : 'bow';
@@ -406,14 +447,28 @@ function updateGameplay() {
         }
 
         // Update UI
-        const hBar = document.getElementById(p + '-hunger');
-        const wBar = document.getElementById(p + '-warmth');
-        const eBar = document.getElementById(p + '-energy');
-        const mBar = document.getElementById(p + '-mood');
-        if (hBar) hBar.style.width = player.hunger + '%';
-        if (wBar) wBar.style.width = player.warmth + '%';
-        if (eBar) eBar.style.width = player.energy + '%';
-        if (mBar) mBar.style.width = player.mood + '%';
+        const bars = {
+            hunger: document.getElementById(p + '-hunger'),
+            warmth: document.getElementById(p + '-warmth'),
+            energy: document.getElementById(p + '-energy'),
+            mood: document.getElementById(p + '-mood')
+        };
+        
+        Object.entries(bars).forEach(([stat, el]) => {
+            if (!el) return;
+            const val = player[stat];
+            el.style.width = val + '%';
+            
+            // Color Coding: Red (<25), Orange (<50), Greenish (>50)
+            if (val < 25) el.style.background = '#ff4444';
+            else if (val < 50) el.style.background = '#ffaa44';
+            else {
+                // Restore defaults
+                if (stat === 'energy') el.style.background = '#4af';
+                else if (stat === 'mood') el.style.background = '#f4a';
+                else el.style.background = 'linear-gradient(90deg, #8a6d2b, #c9a240)';
+            }
+        });
     });
 
     // Apply updated animations to mesh
