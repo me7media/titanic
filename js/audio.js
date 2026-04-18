@@ -80,16 +80,25 @@ export function initAudio() {
         playLoop();
     }
 
-    const startAudio = () => {
-        if (ctx.state === 'suspended') ctx.resume();
+    const startAudio = async () => {
+        if (ctx.state === 'suspended') await ctx.resume();
         createEngineSound();
         playMelody(); 
     };
 
     // Global helper for mobile touch re-activation
     window.resumeAudio = () => {
-        if (ctx.state === 'suspended') ctx.resume();
+        if (ctx.state === 'suspended') {
+            ctx.resume().then(() => {
+                console.log("AudioContext resumed successfully.");
+            }).catch(err => console.error("Audio resume failed:", err));
+        }
     };
 
-    startAudio(); // Start immediately since initAudio is called in interaction handler
+    // Auto-resume on any state change
+    ctx.onstatechange = () => {
+        if (ctx.state === 'suspended') window.resumeAudio();
+    };
+
+    startAudio(); 
 }

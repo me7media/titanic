@@ -15,6 +15,9 @@ export function isMobile() {
     return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 }
 
+// Global placeholder for audio resume
+window.resumeAudio = () => { console.log("Audio not yet initialized"); };
+
 
 /**
  * Initialize all input listeners.
@@ -118,9 +121,11 @@ function initMobileControls() {
     container.classList.remove('hidden');
 
     // Audio re-activation for mobile (fixes silent start context)
-    window.addEventListener('touchstart', () => {
-        if (typeof window.resumeAudio === 'function') window.resumeAudio();
-    }, { once: false, passive: true });
+    ['touchstart', 'touchend', 'click', 'mousedown'].forEach(evt => {
+        window.addEventListener(evt, () => {
+            if (typeof window.resumeAudio === 'function') window.resumeAudio();
+        }, { once: false, passive: true });
+    });
 
     // Hide desktop hints
     const desktopHints = document.getElementById('controls-hint');
