@@ -5,9 +5,11 @@ import { initShip, updateShip, buildDetailedLifeboat } from './ship.js';
 import { initCharacters, updateCharacterPose } from './characters.js';
 import { initInteriors } from './interiors.js';
 import { bowGroup, shipGroup, sternGroup } from './ship.js';
+import { initInput, isMobile } from './input.js';
 
-let scene, camera, renderer;
-let jackMesh, roseMesh, rescueBoat;
+export let jackMesh, roseMesh;
+export let scene;
+let camera, renderer, rescueBoat;
 
 // Global lights that should be dimmed indoors
 let ambientLight, hemiLight, moonLight;
@@ -93,67 +95,14 @@ function init() {
     renderer.setAnimationLoop(gameLoop);
 }
 
-// Global Event Listeners - Moved to top level for better testability and immediate responsiveness
+// Global Event Listeners
 window.addEventListener('resize', onWindowResize);
-window.addEventListener('keydown', e => {
-    if (e.repeat) return;
-    game.keys[e.key] = true;
 
-    // Single-action Toggles
-    if (e.key === '1') { game.controlMode = 'ship'; showMessage("Керування: Корабель"); }
-    if (e.key === '2') { game.controlMode = 'jack'; showMessage("Керування: Джек"); }
-    if (e.key === '3') { game.controlMode = 'rose'; showMessage("Керування: Роуз"); }
-
-    if (e.key.toLowerCase() === 't') {
-        if (game.icebergMode === 'off') { game.icebergMode = 'normal'; showMessage('Айсберги: Обережно (x1)'); }
-        else if (game.icebergMode === 'normal') { game.icebergMode = 'double'; showMessage('Айсберги: Збільшено (x2)'); }
-        else { game.icebergMode = 'off'; showMessage('Айсберги: Вимкнено'); }
-    }
-
-    if (e.key.toLowerCase() === 'k') {
-        const idx = ROOM_ORDER.indexOf(game.currentRoom);
-        game.currentRoom = ROOM_ORDER[(idx + 1) % ROOM_ORDER.length];
-        showMessage(`Кімната: ${game.currentRoom.toUpperCase()}`);
-    }
-
-    if (e.key.toLowerCase() === 'p') {
-        game.controlMode = 'freecam';
-        showMessage("Режим: Вільна Камера (Літати на стрілочках)");
-    }
-
-    if (e.key.toLowerCase() === 'h') {
-        const helpMenu = document.getElementById('help-menu');
-        if (helpMenu) helpMenu.classList.toggle('hidden');
-    }
-
-    // Action Keys
-    const isInteriorNow = game.currentRoom !== 'deck';
-    if (e.key.toLowerCase() === 'q' && !isInteriorNow) {
-        if (game.players[game.controlMode]) {
-            game.players[game.controlMode].deckLevel = Math.max(0, (game.players[game.controlMode].deckLevel || 0) - 1);
-            showMessage("Спуск на палубу нижче");
-        }
-    }
-    if (e.key.toLowerCase() === 'e' && !isInteriorNow) {
-        if (game.players[game.controlMode]) {
-            game.players[game.controlMode].deckLevel = Math.min(4, (game.players[game.controlMode].deckLevel || 0) + 1);
-            showMessage("Підйом на палубу вище");
-        }
-    }
-});
-    window.addEventListener('keyup', e => game.keys[e.key] = false);
-
-    // Dynamic Camera Peek & Zoom logic
-    window.addEventListener('mousemove', e => {
-        game.mouseX = (e.clientX / window.innerWidth) * 2 - 1;
-        game.mouseY = (e.clientY / window.innerHeight) * 2 - 1;
-    });
-    window.addEventListener('wheel', e => {
-        game.camDist = Math.max(10, Math.min(200, (game.camDist || 40) + e.deltaY * 0.1));
-    });
-
-// Init check for Start UI
+// Init check for Start UI + Input system
 window.addEventListener('DOMContentLoaded', () => {
+    // Initialize unified input system (keyboard + mobile touch)
+    initInput(showMessage);
+
     const startBtn = document.getElementById('start-btn');
     if (startBtn) startBtn.addEventListener('click', startGame);
 
@@ -257,15 +206,24 @@ function updateCamera() {
             const worldPos = new THREE.Vector3();
             activeMesh.getWorldPosition(worldPos);
             
-            // Third Person Follow with "Over the Shoulder" mouse peek
+            // 3rd Person Follow or Cinematic "Fly" shot
             const dist = game.camDist || 40;
-            const targetCam = new THREE.Vector3(
-                worldPos.x + (game.mouseX * 10), 
-                worldPos.y + (dist * 0.4) - (game.mouseY * 5), 
-                worldPos.z + dist
-            );
-            camera.position.lerp(targetCam, 0.06);
-            camera.lookAt(worldPos.x, worldPos.y + 4, worldPos.z - 10);
+            
+            if (game.players.rose.pose === 'fly') {
+                // Cinematic front view for the "I'm flying" scene
+                const targetCam = new THREE.Vector3(worldPos.x + 20, worldPos.y + 5, worldPos.z);
+                camera.position.lerp(targetCam, 0.05);
+                camera.lookAt(worldPos.x, worldPos.y + 4, worldPos.z);
+            } else {
+                // Standard Third Person Follow with mouse peek
+                const targetCam = new THREE.Vector3(
+                    worldPos.x + (game.mouseX * 10), 
+                    worldPos.y + (dist * 0.4) - (game.mouseY * 5), 
+                    worldPos.z + dist
+                );
+                camera.position.lerp(targetCam, 0.06);
+                camera.lookAt(worldPos.x, worldPos.y + 4, worldPos.z - 10);
+            }
         }
     }
 }
@@ -480,11 +438,12 @@ function updateGameplay() {
     ['jack', 'rose'].forEach(key => {
         const mesh = key === 'jack' ? jackMesh : roseMesh;
         if (!mesh) return; // fail-safe for tests
+        
         const playerState = game.players[key];
         if (playerState.saved) return; // Keep them sitting in the lifeboat
 
         if (isInterior) {
-            if (mesh.parent !== scene) { scene.add(mesh); }
+            if (scene && mesh.parent !== scene) { scene.add(mesh); }
             mesh.position.x = Math.max(-28, Math.min(mesh.position.x, 28));
             mesh.position.z = Math.max(-18, Math.min(mesh.position.z, 18));
             mesh.position.y = yOffset + 2.25;
@@ -493,11 +452,13 @@ function updateGameplay() {
             }
         } else {
             // Outdoor Deck Rules: Characters become physical children of the tumbling ship parts
-            let target = shipGroup;
+            let target = typeof shipGroup !== 'undefined' ? shipGroup : null;
             if (game.ship.isBroken) {
-                target = mesh.position.x < 0 ? sternGroup : bowGroup;
+                target = (mesh.position.x < 0) ? (typeof sternGroup !== 'undefined' ? sternGroup : null) : (typeof bowGroup !== 'undefined' ? bowGroup : null);
             }
-            if (mesh.parent !== target) { target.add(mesh); }
+            
+            // Only parent if target exists (3D scene ready)
+            if (target && mesh.parent !== target) { target.add(mesh); }
 
             const dLevel = playerState.deckLevel || 0;
             const bounds = DECK_LEVELS[dLevel];
@@ -510,18 +471,16 @@ function updateGameplay() {
                 mesh.rotation.y = Math.atan2(mesh.userData.dirX, mesh.userData.dirZ);
             }
 
-            // Lifeboat Rescue Jump trigger (Jump off when at edge of deck near X=10)
+            // Lifeboat Rescue Jump trigger
             if (game.phase === 'sinking' && rescueBoat) {
                 rescueBoat.visible = true;
-                // Dynamically keep lifeboat beside the ship's current steering position
                 rescueBoat.position.z = game.ship.zPos + 18;
                 
-                // Allow jump if at railing (z > zMax-1) and near boat's X
                 if (mesh.position.z > bounds.zMax - 1 && Math.abs(mesh.position.x - 10) < 15) {
                     playerState.saved = true;
                     rescueBoat.add(mesh);
-                    mesh.position.set(key === 'jack' ? -1 : 1, 0.4, 0); // Position inside boat
-                    showMessage(`Ура! ${playerState.name} у безпеці в шлюпці!`);
+                    mesh.position.set(key === 'jack' ? -1 : 1, 0.4, 0);
+                    showMessage("Ура! " + playerState.name + " у безпеці в шлюпці!");
                 }
             }
         }

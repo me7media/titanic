@@ -1,39 +1,70 @@
 <!DOCTYPE html>
 <html lang="uk">
+
 <head>
     <meta charset="UTF-8">
     <title>Titanic 3D - Automated Test Suite</title>
     <style>
-        body { font-family: monospace; background: #1a1a1a; color: #ddd; padding: 20px; }
-        .pass { color: #44ee44; }
-        .fail { color: #ee4444; }
-        .log { margin-left: 20px; color: #88aaee; }
+        body {
+            font-family: monospace;
+            background: #1a1a1a;
+            color: #ddd;
+            padding: 20px;
+        }
+
+        .pass {
+            color: #44ee44;
+        }
+
+        .fail {
+            color: #ee4444;
+        }
+
+        .log {
+            margin-left: 20px;
+            color: #88aaee;
+        }
     </style>
 </head>
+
 <body>
     <h1>Тестування Модулів та Сцени</h1>
     <div id="results">Завантаження...</div>
 
-    <script src="./three.min.js"></script>
+    <script src="./js/three.min.js"></script>
     <script type="module">
         import { game, ROOM_ORDER, STATIONS } from './js/state.js';
-        import { updateGameplay } from './js/main.js';
-        
+        import { updateGameplay, jackMesh, roseMesh } from './js/main.js';
+        import { handleToggleKey } from './js/input.js';
+
         const results = document.getElementById('results');
         results.innerHTML = '';
-        
-        function logMsg(msg, isError=false) {
+
+        function logMsg(msg, isError = false) {
             results.innerHTML += `<div class="${isError ? 'fail' : 'pass'}">${isError ? '❌' : '✔️'} ${msg}</div>`;
         }
 
         function assert(condition, message) {
-            if (!condition) throw new Error(message);
+            if (!condition) {
+                console.error(`Assertion failed: ${message}`, {
+                    jack: game.players.jack,
+                    rose: game.players.rose,
+                    keys: game.keys,
+                    control: game.controlMode
+                });
+                throw new Error(message);
+            }
             logMsg(message);
+        }
+
+        function resetKeys() {
+            Object.keys(game.keys).forEach(k => game.keys[k] = false);
         }
 
         async function runTests() {
             try {
                 // Test 1: Module Integrity
+                resetKeys();
                 logMsg("--- ТЕСТ 1: ЦІЛІСНІСТЬ МОДУЛІВ ---", false);
                 const state = await import('./js/state.js');
                 const ship = await import('./js/ship.js');
@@ -46,15 +77,15 @@
                 game.ship.speed = 1.0;
                 game.keys['s'] = true; updateGameplay();
                 assert(game.ship.speed < 1.0, "Гальмування: швидкість зменшується.");
-                
+
                 game.ship.zPos = 0;
                 game.keys['a'] = true; updateGameplay();
                 assert(game.ship.zPos > 0, "Керування кораблем (Поворот вліво): zPos змінюється.");
-                
+
                 game.ship.speed = 0.5;
-                for(let i=0; i<30; i++) updateGameplay(); // Stop the ship
+                for (let i = 0; i < 30; i++) updateGameplay(); // Stop the ship
                 assert(game.ship.speed === 0, "Корабель може повністю зупинитися.");
-                
+
                 // Test 3: Survival Mechanics (Hunger, Warmth, Energy)
                 logMsg("--- ТЕСТ 3: МЕХАНІКА ВИЖИВАННЯ ---", false);
                 game.players.jack.hunger = 100;
@@ -62,9 +93,9 @@
                 game.players.jack.energy = 100;
                 game.phase = 'sinking';
                 game.currentRoom = 'deck'; // Outdoors
-                
-                for(let i=0; i<50; i++) {
-                    game.time += 0.05; 
+
+                for (let i = 0; i < 50; i++) {
+                    game.time += 0.05;
                     updateGameplay();
                 }
                 assert(game.players.jack.hunger < 100, "Голод зменшується з часом.");
@@ -74,22 +105,21 @@
                 // Test 4: Input Toggles & Modes
                 logMsg("--- ТЕСТ 4: ПЕРЕМИКАЧІ РЕЖИМІВ ---", false);
                 game.icebergMode = 'off';
-                const eventT = new KeyboardEvent('keydown', { key: 't' });
-                window.dispatchEvent(eventT);
+                handleToggleKey('t');
                 assert(game.icebergMode === 'normal', "Клавіша T: off -> normal.");
-                window.dispatchEvent(eventT);
+                handleToggleKey('t');
                 assert(game.icebergMode === 'double', "Клавіша T: normal -> double.");
-                
+
                 game.controlMode = 'ship';
-                window.dispatchEvent(new KeyboardEvent('keydown', { key: '2' }));
+                handleToggleKey('2');
                 assert(game.controlMode === 'jack', "Клавіша 2: Керування -> Джек.");
 
                 // Test 5: Room Navigation
                 logMsg("--- ТЕСТ 5: НАВІГАЦІЯ ПО КІМНАТАХ ---", false);
                 game.currentRoom = 'deck';
-                window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k' }));
+                handleToggleKey('k');
                 assert(game.currentRoom === 'dining', "Клавіша K: Deck -> Dining.");
-                
+
                 // Test 6: Iceberg Scaling & Density
                 logMsg("--- ТЕСТ 6: АЙСБЕРГИ ТА СКЛАДНІСТЬ ---", false);
                 game.icebergMode = 'double';
@@ -103,7 +133,7 @@
                 const mockIcebergs = [{ position: { x: 100, z: 0 } }];
                 game.ship.zPos = 0;
                 // Since updateEnvironment is hard to mock fully without a scene, we verify state transition
-                game.phase = 'sinking'; 
+                game.phase = 'sinking';
                 assert(game.phase === 'sinking', "Перехід у фазу Sinking при зіткненні активовано.");
 
                 // Test 8: Post-Collision Control Lock
@@ -114,10 +144,10 @@
                 game.ship.speed = 2.0; // Artificial momentum
                 game.keys['w'] = true; // Attempt to accelerate
                 game.keys['a'] = true; // Attempt to steer
-                game.ship.zPos = 50; 
-                
+                game.ship.zPos = 50;
+
                 updateGameplay();
-                
+
                 assert(game.ship.speed === 0, "Після удару швидкість примусово обнуляється.");
                 assert(game.ship.zPos === 50, "Керування (Z-позиція) заблоковано у фазі sinking.");
 
@@ -130,7 +160,7 @@
                 // Since updateGameplay is internal, we manually verify spd-affected variables if needed, 
                 // but let's check high-level state.
                 game.players.jack.mood = 10;
-                updateGameplay(); 
+                updateGameplay();
                 logMsg("Штрафи швидкості при низькому настрої активовано.");
 
                 // Test 10: Station Logic
@@ -142,24 +172,58 @@
                 logMsg(`Станція Dining: x=${STATIONS.dining.x}, z=${STATIONS.dining.z}`);
                 updateGameplay();
                 assert(game.players.jack.hunger === 50, "Не можна їсти далеко від столу.");
-                
+
                 game.players.jack.x = 0; // Near table (STATIONS.dining.x = 0)
                 game.players.jack.z = -5;
                 updateGameplay();
-                logMsg(`Лог стану: Hunger=${game.players.jack.hunger}`); 
+                logMsg(`Лог стану: Hunger=${game.players.jack.hunger}`);
                 assert(game.players.jack.hunger > 50, "Відновлення показників біля станції працює.");
+
+                // Test 11: "I'm Flying" Cinematic Logic
+                logMsg("--- ТЕСТ 11: СЦЕНА 'Я ЛЕЧУ' ---", false);
+                resetKeys();
+                game.currentRoom = 'deck'; // Ensure we are on deck
+                game.players.jack.pose = 'stand';
+                game.players.rose.pose = 'stand';
+                game.players.jack.x = 0; game.players.jack.z = 0;
+                game.players.rose.x = 100; game.players.rose.z = 100; // Far apart first
+                if (jackMesh) jackMesh.position.set(0, 0, 0);
+                if (roseMesh) roseMesh.position.set(100, 0, 100);
+
+                game.controlMode = 'rose';
+                game.keys['l'] = true;
+                updateGameplay();
+                assert(game.players.rose.pose !== 'fly', "Не можна літати, якщо Джек далеко.");
+
+                game.players.rose.x = 0.5; game.players.rose.z = 0.5; // Very close
+                if (roseMesh) roseMesh.position.set(0.5, 0, 0.5);
+                
+                logMsg(`До перевірки: Rose(${game.players.rose.x},${game.players.rose.z}), Jack(${game.players.jack.x},${game.players.jack.z})`);
+                updateGameplay(); // Pass 1
+                logMsg(`Pass 1: Rose Pose=${game.players.rose.pose}`);
+                updateGameplay(); // Pass 2
+                logMsg(`Pass 2: Jack Pose=${game.players.jack.pose}`);
+                
+                const d = Math.hypot(game.players.jack.x - game.players.rose.x, game.players.jack.z - game.players.rose.z);
+                logMsg(`Фінальний стан: Rose=${game.players.rose.pose}, Jack=${game.players.jack.pose}, Dist=${d.toFixed(2)}, Mode=${game.controlMode}`);
+                
+                assert(game.players.rose.pose === 'fly', "Система 'Я лечу' активована при близькості.");
+                assert(game.players.jack.pose === 'fly', "Джек автоматично підтримує Роуз у позі польоту.");
+                resetKeys();
 
                 // Conclusion
                 results.innerHTML += "<br><h2 style='color:#44ee44'>✅ ВСІ КРИТИЧНІ ТЕСТИ ПРОЙДЕНО!</h2>";
-                results.innerHTML += "<p style='color:#888'>Механіки руху, виживання, перемикання режимів, колізій та логічні зони верифіковано.</p>";
-                
+                results.innerHTML += "<p style='color:#888'>Механіки польоту та кінематографічного стану верифіковано.</p>";
+                results.innerHTML += "<h2 style='color:#44ee44'>УСІ ТЕСТИ ПРОЙДЕНО УСПІШНО! ✅</h2>";
+
             } catch (error) {
                 logMsg(`ТЕСТ ПРОВАЛЕНО: ${error.message}`, true);
                 results.innerHTML += `<pre style="color:red;">${error.stack}</pre>`;
             }
         }
-        
+
         runTests();
     </script>
 </body>
+
 </html>

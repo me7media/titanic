@@ -106,6 +106,7 @@ export function updateCharacterPose(mesh, pose) {
     let armLX = 0, armLZ = 0;
     let armRX = 0, armRZ = 0;
 
+    let armScale = 1.0;
     if (pose === 'bow') {
         targetXRot = Math.PI / 4; // Lean forward
         targetYOffset = -1.5;
@@ -125,9 +126,18 @@ export function updateCharacterPose(mesh, pose) {
         armRX = -Math.PI / 1.5; 
         armRZ = 0.5;
     } else if (pose === 'fly') {
-        armLZ = Math.PI / 2.2;
-        armRZ = -Math.PI / 2.2;
-        armLX = 0.2; armRX = 0.2;
+        const type = mesh.userData.bodyType;
+        if (type === 'rose') {
+            armLZ = Math.PI / 2.2;
+            armRZ = -Math.PI / 2.2;
+            armLX = 0.2; armRX = 0.2;
+            armScale = 1.6; // Maximum elongation for the iconic scene
+        } else {
+            // Jack holds Rose's waist from behind
+            armLX = -Math.PI / 3; armRX = -Math.PI / 3;
+            armLZ = 0.4; armRZ = -0.4; 
+            armScale = 1.0;
+        }
     }
     
     // Lerp body leaning relative to its facing direction
@@ -148,6 +158,10 @@ export function updateCharacterPose(mesh, pose) {
         
         armR.rotation.x += (armRX - armR.rotation.x) * 0.1;
         armR.rotation.z += (armRZ - armR.rotation.z) * 0.1;
+
+        // Apply dynamic scaling
+        armL.scale.setScalar(THREE.MathUtils.lerp(armL.scale.x, armScale, 0.1));
+        armR.scale.setScalar(THREE.MathUtils.lerp(armR.scale.x, armScale, 0.1));
     }
 }
 

@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Титанік: Легенда океану</title>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -105,20 +105,54 @@
             </div>
         </div>
 
+        <!-- Mobile Touch Controls (hidden on desktop) -->
+        <div id="mobile-controls" class="hidden">
+            <!-- Mode Tabs -->
+            <div id="mobile-mode-tabs">
+                <button id="btn-mode-ship" class="mode-tab active-tab">🚢</button>
+                <button id="btn-mode-jack" class="mode-tab">🧍</button>
+                <button id="btn-mode-rose" class="mode-tab">👩</button>
+                <button id="btn-room" class="mode-tab room-tab">🚪</button>
+            </div>
+
+            <!-- Virtual Joystick -->
+            <div id="joystick-zone"></div>
+
+            <!-- Context Action Buttons (right side) -->
+            <div id="mobile-actions">
+                <button id="btn-action-f" class="action-btn" style="display:none">🍖<span>Їсти</span></button>
+                <button id="btn-action-x" class="action-btn" style="display:none">🛏<span>Лягти</span></button>
+                <button id="btn-action-z" class="action-btn" style="display:none">🪑<span>Сісти</span></button>
+                <button id="btn-action-c" class="action-btn" style="display:none">🎩<span>Поклон</span></button>
+                <button id="btn-action-l" class="action-btn" style="display:none">✈️<span>Лечу!</span></button>
+            </div>
+
+            <!-- Deck Level & Sprint -->
+            <div id="mobile-bottom-bar">
+                <button id="btn-deck-down" class="bottom-btn" style="display:none">⬇️</button>
+                <button id="btn-deck-up" class="bottom-btn" style="display:none">⬆️</button>
+                <button id="btn-sprint" class="bottom-btn sprint-btn">🏃</button>
+            </div>
+        </div>
+
         <div id="start-screen" class="overlay-full">
             <div class="content">
                 <h1 class="logo">Титанік 3D</h1>
                 <p>Допоможи Джеку та Роуз вижити під час легендарної подорожі</p>
                 <button id="start-btn">Почати подорож</button>
                 <div style="margin-top: 15px;">
-                    <a href="gallery.html" style="color: #6688cc; text-decoration: none; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Переглянути галерею (3D Showcase)</a>
+                    <a href="gallery.html"
+                        style="color: #6688cc; text-decoration: none; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Переглянути
+                        галерею (3D Showcase)</a>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Three.js (WebGL Engine) -->
-    <script src="./three.min.js"></script>
+    <script src="./js/three.min.js"></script>
+    <script src="./js/nipplejs.min.js"></script>
     <script type="module" src="js/main.js"></script>
 </body>
+
 </html>
