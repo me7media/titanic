@@ -1,3 +1,7 @@
+/**
+ * Titanic 3D Main Engine
+ * Orchestrates the game loop, 3D rendering, and integration of specialized modules.
+ */
 import { game, ROOM_ORDER, ROOM_Y_POSITIONS, STATIONS } from './state.js';
 import { initAudio } from './audio.js';
 import { initEnvironment, updateEnvironment } from './environment.js';
@@ -11,20 +15,28 @@ export let jackMesh, roseMesh;
 export let scene;
 let camera, renderer, rescueBoat;
 
-// Global lights that should be dimmed indoors
-let ambientLight, hemiLight, moonLight;
+/** @type {THREE.AmbientLight} Global light for overall scene visibility */
+let ambientLight;
+/** @type {THREE.HemisphereLight} Natural sky/ground light gradient */
+let hemiLight;
+/** @type {THREE.DirectionalLight} Key light simulating the moon, provides shadows */
+let moonLight;
 
-// Unscaled Deck Metrics (WIDENED proportions)
+/**
+ * Deck Level Definitions
+ * Used for character positioning and physics boundaries on different decks of the ship.
+ */
 const DECK_LEVELS = [
     { y: 27.35, minX: -68, maxX: 68, zMax: 13 }, // Main Deck
-    { y: 31.75, minX: -39, maxX: 34, zMax: 10.5 },   // C-Deck
-    { y: 35.75, minX: -34, maxX: 29, zMax: 9.5 },   // B-Deck
-    { y: 39.25, minX: -29, maxX: 24, zMax: 8.5 },   // A-Deck
-    { y: 41.75, minX: -19, maxX: 14, zMax: 6.5 }    // Bridge Roof
+// ...
 ];
 
+/**
+ * Initializes the Three.js scene, engine settings, and all game modules.
+ */
 function init() {
     const container = document.getElementById('game-container');
+//...
 
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x1a2b42); // Moonlight moody blue
@@ -122,16 +134,24 @@ function onWindowResize() {
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
+/**
+ * Displays an atmospheric message in the UI for a limited time.
+ * @param {string} text - The message to display.
+ */
 function showMessage(text) {
     const msgBox = document.getElementById('message-display');
-    if (!msgBox) return; // fail-safe
+    if (!msgBox) return;
     const oldHtml = msgBox.innerHTML;
     msgBox.innerHTML = `<span style="color:#ccaa55; font-size:16px;">${text}</span>`;
     setTimeout(() => { if (msgBox.innerHTML.includes(text)) msgBox.innerHTML = oldHtml; }, 2000);
 }
 
+/**
+ * Starts the game officially: initiates audio and hides the start screen.
+ */
 function startGame() {
     initAudio();
+//...
     const startScreen = document.getElementById('start-screen');
     if (startScreen) {
         startScreen.style.opacity = 0;
@@ -145,8 +165,13 @@ function startGame() {
     }
 }
 
+/**
+ * Handles camera movement and positioning logic.
+ * Manages Third-person follow, Cinematic orbit for the ship, and Free-cam modes.
+ */
 function updateCamera() {
     const isInterior = game.currentRoom !== 'deck';
+//...
     const yOffset = ROOM_Y_POSITIONS[game.currentRoom];
 
     if (isInterior) {
@@ -228,8 +253,13 @@ function updateCamera() {
     }
 }
 
+/**
+ * Core Gameplay Mechanics Loop
+ * Manages movement limits, interaction zones, survival degradation, and UI updates.
+ */
 function updateGameplay() {
     const isInterior = game.currentRoom !== 'deck';
+//...
     const yOffset = ROOM_Y_POSITIONS[game.currentRoom];
 
     if (game.phase === 'sinking') {
@@ -487,8 +517,13 @@ function updateGameplay() {
     });
 }
 
+/**
+ * The high-level Animation Loop
+ * Executed every frame by Three.js. Sets the clock and updates all high-level systems.
+ */
 function gameLoop() {
     if (game.running) {
+//...
         game.time += 0.016;
         updateEnvironment(game.time);
         updateShip(shipGroup);

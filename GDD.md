@@ -2,41 +2,45 @@
 
 ## 1. Overview
 **Title:** Titanic: Legend of the Ocean  
-**Genre:** 2D Survival / Narrative Adventure (Kid-Friendly)  
-**Target Audience:** Children (under 10) and family.  
-**Platform:** Web / Desktop Browser.
+**Genre:** 3D Cinematic Survival / Narrative Adventure  
+**Target Audience:** General audience, fans of historical simulations and narrative storytelling.  
+**Platform:** Web Browsers (Desktop & Mobile).
 
 ## 2. Core Gameplay Pillars
-- **Care & Survival:** Managing the basic needs (hunger and warmth) of Jack and Rose in a luxury setting.
-- **Narrative Immersion:** Beautiful, "cinematic" interior recreations with film grain and vignette effects.
-- **Social Synergy:** Jack and Rose can hold hands to share body heat, emphasizing their connection.
-- **Tension & Rescue:** A dramatic shift from luxury travel to survival after colliding with an iceberg.
+- **Care & Survival:** Managing the basic needs (hunger, warmth, energy, mood) of Jack and Rose.
+- **Cinematic Immersion:** High-fidelity 3D environments with dynamic lighting, ocean waves, and dramatic camera angles.
+- **Iconic Moments:** Recreation of legendary scenes, such as the "I'm flying" pose at the bow.
+- **Tension & Rescue:** A physics-driven shift from sailing to sinking, culminating in a rescue mission via lifeboats.
 
 ## 3. Visual Style (Art Direction)
-- **Aesthetic:** High-contrast 2D graphics with a "premium" feel. Use of mahogany, gold accents, and velvet textures.
-- **Atmosphere:** Deep ocean blues vs. warm golden interior lighting.
-- **Characters:** Stylized but recognizable avatars of Jack and Rose with fluid animations.
+- **Aesthetic:** "Noir" cinematic style. Deep midnight blues, vibrant carmine red hull bottoms, and warm golden interiors.
+- **Atmosphere:** Dynamic ocean swells, moonlight fog, and procedural smoke/foam effects.
+- **Characters:** Stylized 3D models with procedural animations for complex interactions.
 
 ## 4. Game Mechanics
-### A. Ship Control & Pacing
-- Navigate the Titanic through a sea of icebergs.
-- Simplified steering for children (Up/Down).
-- Pacing adjusted for kids: slower iceberg spawn and manageable survival stat depletion.
+### A. Ship Control & Navigation
+- **Sailing Phase:** Navigate the ship through icebergs. Dynamic tilting and yawing while steering.
+- **Difficulty Modes:** 'Normal' for a relaxed experience, 'Double' for more iceberg frequency.
+- **Mobile Controls:** Virtual joystick for movement; pinch-to-zoom and swipe-to-look for camera control.
 
-### B. Interior Exploration
-- Cycle through 5 iconic locations: Deck, Grand Dining Hall, Luxury Cabin, Relaxation Lounge, and Main Corridor.
-- High-fidelity renders with period-accurate details and actor likeness for Jack and Rose.
-- Each room serves a specific purpose (Dining = Hunger, Cabin/Lounge = Warmth).
+### B. Interactive Environments (Stations)
+- **Deck:** Main deck with multiple levels and the bow for the "Fly" scene.
+- **Grand Dining Hall:** Area to restore Hunger.
+- **Luxury Cabin:** Area to restore Energy through sleep.
+- **Relaxation Lounge:** Area to restore Warmth and Mood near the fireplace.
 
-### C. Social & Survival
-- **Holding Hands:** Characters recovering warmth faster when standing close together.
-- **Lifeboat Boarding:** Progressive loading bar for boarding the lifeboat, creating a "rescue mission" feel.
+### C. Proximity & Romance
+- **Holding Hands / Protective Handoff:** Characters sync their poses when close.
+- **"I'm Flying":** When Rose is at the bow and Jack is behind her, pressing 'L' triggers the iconic cinematic shot.
 
-### C. The Sinking (The Crisis)
-- Triggered by collision. The ship tilts, music (if added) shifts, and water levels rise.
-- Objective: Guide both characters to the Lifeboat.
+### D. The Sinking (The Crisis)
+- Triggered by iceberg collision. 
+- **Physics:** The ship tilts forward, eventually breaking in half dynamically.
+- **Objective:** Navigate characters to the stern/deck edge to board the lifeboat.
 
 ## 5. Technical Requirements
-- **Engine:** Vanilla JavaScript / HTML5 Canvas.
-- **Styling:** CSS3 for UI and atmospheric overlays.
-- **Logic:** State-driven architecture for seamless transitions between rooms and game phases.
+- **Engine:** Three.js (WebGL).
+- **Styling:** CSS3 Glassmorphism for UI; Vanilla CSS for mobile control overlays.
+- **Input:** Unified Input Manager mapping Keyboard/Mouse and NippleJS (Mobile) to a shared game state.
+- **Validation:** Automated test suite for cross-platform stability.
+

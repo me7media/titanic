@@ -7,9 +7,14 @@ import { game, ROOM_ORDER } from './state.js';
 let joystickManager = null;
 let showMessageFn = null; // will be injected from main.js
 
+/**
+ * Detects if the current device supports touch interactions.
+ * @returns {boolean} True if touch is supported.
+ */
 export function isMobile() {
     return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 }
+
 
 /**
  * Initialize all input listeners.
@@ -41,9 +46,13 @@ export function initInput(showMsg) {
     }
 }
 
-// Single-press toggle actions (shared between keyboard and mobile buttons)
+/**
+ * Handles single-press toggle actions shared between keyboard and mobile buttons.
+ * @param {string} key - The key identifier (e.g., '1', 't', 'k').
+ */
 export function handleToggleKey(key) {
     const k = key.toLowerCase();
+
 
     if (key === '1') { game.controlMode = 'ship'; showMessageFn?.("Керування: Корабель"); updateMobileContext(); }
     if (key === '2') { game.controlMode = 'jack'; showMessageFn?.("Керування: Джек"); updateMobileContext(); }
@@ -88,6 +97,9 @@ export function handleToggleKey(key) {
 // MOBILE TOUCH CONTROLS
 // ════════════════════════════════════════════
 
+/**
+ * Initializes mobile-specific UI elements: Virtual Joystick, Camera Swipes, and Action Buttons.
+ */
 function initMobileControls() {
     const container = document.getElementById('mobile-controls');
     if (!container) return;
@@ -255,7 +267,8 @@ function setupToggleButton(id, key) {
 }
 
 /**
- * Update which action buttons are visible based on current mode/room
+ * Updates the visibility of mobile action buttons based on the current game mode and room.
+ * This ensures only relevant buttons (e.g., 'Eat' in Dining Room) are shown.
  */
 function updateMobileContext() {
     const btns = {

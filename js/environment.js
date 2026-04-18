@@ -9,8 +9,13 @@ const wakeGeo = new THREE.PlaneGeometry(15, 15);
 
 let foamGeo, foamLives;
 
+/**
+ * Initializes the global world environment: Ocean, Stars, and Wake effects.
+ * @param {THREE.Scene} scene - The main game scene.
+ */
 export function initEnvironment(scene) {
     sceneRef = scene;
+
 
     // Ocean Plane (Higher vertex count for complex waves)
     const oceanGeo = new THREE.PlaneGeometry(1200, 1200, 128, 128);
@@ -56,8 +61,13 @@ export function initEnvironment(scene) {
     scene.add(stars);
 }
 
+/**
+ * Spawns a unique, multi-chunk iceberg ahead of the ship.
+ * Generates random silhouettes by adding child-meshes to the base iceberg.
+ */
 function spawnIceberg() {
     // Random base size
+
     const size = 4 + Math.random() * 8;
     const geo = new THREE.DodecahedronGeometry(size); 
     
@@ -90,8 +100,13 @@ function spawnIceberg() {
     icebergs.push(mesh);
 }
 
+/**
+ * Updates all environment animations: waves, stars (if moving), wakes, and icebergs.
+ * @param {number} time - Global game time for wave synchronization.
+ */
 export function updateEnvironment(time) {
     if (!oceanMesh) return;
+
     
     // Complex Ocean Waves Animation
     const positions = oceanMesh.geometry.attributes.position.array;

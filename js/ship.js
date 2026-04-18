@@ -3,8 +3,15 @@ import { game } from './state.js';
 export let shipGroup, bowGroup, sternGroup, unifiedHullsGroup;
 export const splitHulls = [];
 
+/**
+ * Initializes the titanic ship model, materials, and groups.
+ * Handles procedural hull generation for both unified and split (sinking) versions.
+ * @param {THREE.Scene} scene - The main game scene.
+ * @returns {THREE.Group} The main ship group.
+ */
 export function initShip(scene) {
     shipGroup = new THREE.Group();
+
     bowGroup = new THREE.Group();
     sternGroup = new THREE.Group();
     unifiedHullsGroup = new THREE.Group();
@@ -29,6 +36,14 @@ export function initShip(scene) {
     const windowMat = new THREE.MeshBasicMaterial({ color: 0xffeebb });
     const propMat = new THREE.MeshStandardMaterial({ color: 0xccaa33, metalness: 0.8, roughness: 0.2 });
 
+    /**
+     * Procedural Hull Z-depth calculation
+     * Shapes the beam of the ship based on X/Y position to create realistic bow/stern tapers.
+     * @param {number} x - Horizontal position.
+     * @param {number} y - Vertical position.
+     * @param {number} maxZ - Maximum width (beam).
+     * @returns {number} The calculated Z depth.
+     */
     function getHullZ(x, y, maxZ) {
         let z = maxZ;
         const ny = Math.max(0, Math.min(1, (y + 2) / 27));
@@ -37,6 +52,7 @@ export function initShip(scene) {
         z *= (0.1 + 0.9 * Math.pow(ny, 0.4));
         return z;
     }
+
 
     // Generator for split halves (invisible until broken)
     function createSplitHull(width, length, topY, bottomY, mat, isStern) {
@@ -408,8 +424,13 @@ export function initShip(scene) {
     return shipGroup;
 }
 
+/**
+ * Updates ship physics and sinking animations.
+ * @param {THREE.Group} shipGroup - The main ship mesh group.
+ */
 export function updateShip(shipGroup) {
     if (!game.running) return;
+
 
     shipGroup.visible = game.currentRoom === 'deck';
 
@@ -500,8 +521,13 @@ export function updateShip(shipGroup) {
     }
 }
 
+/**
+ * Factory function for a highly detailed life-boat model based on historical blueprints.
+ * @returns {THREE.Group} The lifeboat mesh group.
+ */
 export function buildDetailedLifeboat() {
     const boatGrp = new THREE.Group();
+
     
     // Materials based on museum replica
     const hullMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.8 });

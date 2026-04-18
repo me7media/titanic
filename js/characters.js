@@ -2,8 +2,14 @@ import { game } from './state.js';
 
 let jackMesh, roseMesh;
 
+/**
+ * Factory function to build a 3D humanoid mesh (Jack or Rose).
+ * @param {string} type - 'jack' or 'rose'.
+ * @returns {THREE.Group} Composite mesh group.
+ */
 function buildHuman(type) {
     const group = new THREE.Group();
+
     const body = new THREE.Group();
     group.add(body);
 
@@ -95,9 +101,15 @@ function buildHuman(type) {
     return group;
 }
 
-// Applies pose states dynamically to character meshes
+/**
+ * Updates a character's animation state based on a pose identifier.
+ * Uses procedural lerping for smooth transitions between stances.
+ * @param {THREE.Group} mesh - The character mesh to update.
+ * @param {string} pose - The target pose (e.g., 'stand', 'fly', 'sit').
+ */
 export function updateCharacterPose(mesh, pose) {
     if (!mesh || !mesh.userData || !mesh.userData.body) return;
+
     const body = mesh.userData.body;
     
     // Reset to Stand by default
@@ -165,8 +177,14 @@ export function updateCharacterPose(mesh, pose) {
     }
 }
 
+/**
+ * Initializes characters and adds them to the scene.
+ * @param {THREE.Scene} scene - The main game scene.
+ * @returns {Object} References to jackMesh and roseMesh.
+ */
 export function initCharacters(scene) {
     jackMesh = buildHuman('jack');
+
     jackMesh.position.set(game.players.jack.x, 38, game.players.jack.z);
     scene.add(jackMesh);
 
