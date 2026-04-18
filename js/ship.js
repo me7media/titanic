@@ -47,18 +47,31 @@ export function initShip(scene) {
     function getHullZ(x, y, maxZ) {
         let z = maxZ;
         const ny = Math.max(0, Math.min(1, (y + 2) / 27));
-        if (x > 20) z *= Math.max(0.01, 1 - Math.pow((x - 20) / 50, 1.2));
-        if (x < -40) z *= Math.max(0.3, 1 - Math.pow((-x - 40) / 30, 2) * 0.7);
+        
+        // Bow Taper (Front: Sharp and pointed)
+        if (x > 20) {
+            const t = (x - 20) / 50; 
+            z *= Math.max(0, 1 - Math.pow(t, 1.4));
+        }
+        
+        // Stern Taper (Back: Rounded Cruiser Stern)
+        if (x < -20) {
+            const t = (-x - 20) / 50; // starts earlier but curves elliptically
+            // Elliptical curve: stays wider longer, then rounds off
+            z *= Math.sqrt(Math.max(0, 1 - Math.pow(t, 2.5)));
+        }
+        
+        // V-Shape Vertical Taper
         z *= (0.1 + 0.9 * Math.pow(ny, 0.4));
         return z;
     }
 
 
     // Generator for split halves (invisible until broken)
-    function createSplitHull(width, length, topY, bottomY, mat, isStern) {
+    const createSplitHull = (width, length, topY, bottomY, mat, isStern) => {
         const height = topY - bottomY;
         const halfLen = length / 2;
-        const geo = new THREE.BoxGeometry(halfLen, height, width, 32, 8, 16);
+        const geo = new THREE.BoxGeometry(halfLen, height, width, 64, 8, 24); // More segments for rounding
         const pos = geo.attributes.position;
         const offsetX = isStern ? -halfLen / 2 : halfLen / 2;
 
@@ -83,7 +96,7 @@ export function initShip(scene) {
     // Generator for unified (seamless) initial hulls
     function createUnifiedHull(width, length, topY, bottomY, mat) {
         const height = topY - bottomY;
-        const geo = new THREE.BoxGeometry(length, height, width, 64, 8, 16);
+        const geo = new THREE.BoxGeometry(length, height, width, 128, 8, 24); // Higher res
         const pos = geo.attributes.position;
         for (let i = 0; i < pos.count; i++) {
             let x = pos.getX(i);
@@ -159,21 +172,21 @@ export function initShip(scene) {
     }
 
     // Split decks
-    const splitDeck1 = new THREE.PlaneGeometry(70, 27, 32, 16); generateDeckVerts(splitDeck1, 140, 35);
+    const splitDeck1 = new THREE.PlaneGeometry(70, 27, 64, 24); generateDeckVerts(splitDeck1, 140, 35);
     const m1 = new THREE.Mesh(splitDeck1, woodMat); m1.rotation.x = -Math.PI / 2; m1.position.set(35, 25.1, 0); m1.receiveShadow = true; m1.visible = false; splitHulls.push(m1); bowModelGroup.add(m1);
 
-    const splitDeck2 = new THREE.PlaneGeometry(70, 27, 32, 16); generateDeckVerts(splitDeck2, 140, -35);
+    const splitDeck2 = new THREE.PlaneGeometry(70, 27, 64, 24); generateDeckVerts(splitDeck2, 140, -35);
     const m2 = new THREE.Mesh(splitDeck2, woodMat); m2.rotation.x = -Math.PI / 2; m2.position.set(-35, 25.1, 0); m2.receiveShadow = true; m2.visible = false; splitHulls.push(m2); sternModelGroup.add(m2);
 
     // Unified deck
-    const unifiedDeck = new THREE.PlaneGeometry(140, 27, 64, 16); generateDeckVerts(unifiedDeck, 140, 0);
+    const unifiedDeck = new THREE.PlaneGeometry(140, 27, 128, 24); generateDeckVerts(unifiedDeck, 140, 0);
     const m3 = new THREE.Mesh(unifiedDeck, woodMat); m3.rotation.x = -Math.PI / 2; m3.position.set(0, 25.1, 0); m3.receiveShadow = true; unifiedModelGroup.add(m3);
 
     // Superstructures
     const buildTier = (minX, maxX, baseH, depth, yLevel) => {
         if (minX < 0 && maxX > 0) {
-            buildTier(minX, -0.2, baseH, depth, yLevel); // Stern portion
-            buildTier(0.2, maxX, baseH, depth, yLevel);  // Bow portion
+            buildTier(minX, 0, baseH, depth, yLevel); // Stern portion
+            buildTier(0, maxX, baseH, depth, yLevel);  // Bow portion
             return;
         }
         const w = maxX - minX;
@@ -213,11 +226,11 @@ export function initShip(scene) {
         }
     };
 
-    // Wider superstructures
-    buildTier(-40, 35, 4.5, 22, 25.1); // C-Deck
-    buildTier(-35, 30, 4.0, 20, 29.6); // B-Deck
-    buildTier(-30, 25, 3.5, 18, 33.6); // A-Deck
-    buildTier(-20, 15, 2.5, 14, 37.1); // Bridge Tiers // Roof
+    // Tapered superstructures: Reduced depth significantly to fit the hull's curve
+    buildTier(-42, 30, 4.73, 18, 25.1); // C-Deck
+    buildTier(-35, 25, 4.2, 16, 29.83);  // B-Deck
+    buildTier(-30, 20, 3.68, 13, 34.03); // A-Deck
+    buildTier(-20, 15, 2.63, 11, 37.71); // Boat Deck
 
     // Bridge & Wings
     const bridgeFront = new THREE.Mesh(new THREE.BoxGeometry(0.5, 3, 10), woodMat);

@@ -14,21 +14,18 @@ export function initInteriors(scene, singleRoom = null) {
     const whiteCloth = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
     
     rooms.forEach(room => {
-        const yBase = singleRoom ? 0 : ROOM_Y_POSITIONS[room]; // If single room, stay at 0
+        const yBase = singleRoom ? 0 : (ROOM_Y_POSITIONS[room] || 0);
         const group = new THREE.Group();
         group.position.set(0, yBase, 0);
         
         // Structure
         const wMat = room === 'corridor' ? whiteWall : woodWall;
-        // Unified floor for all rooms: Rich Blue (as in the Lounge)
         const fMat = richCarpet;
 
-        // Note: Outer walls and ceilings removed to create open dioramas (as requested)
-
-        // Fix Z-fighting: Raise floor slightly
+        // Floor - position 0.05 relative to the group (yBase is already on group)
         const floor = new THREE.Mesh(new THREE.PlaneGeometry(59.8, 39.8), fMat);
         floor.rotation.x = -Math.PI / 2;
-        floor.position.set(0, yBase + 0.05, 0); 
+        floor.position.set(0, 0.05, 0); 
         floor.receiveShadow = true;
         group.add(floor);
         

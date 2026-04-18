@@ -1,74 +1,58 @@
 # Titanic: Legend of the Ocean 🚢🌊
 
-A cinematic 3D simulation of the Titanic's last voyage, built with Three.js. Experience iconic moments, explore detailed 3D interiors, and survive the disaster.
-
-## 🚀 How to Run
-
-### Option 1: Live Demo (GitHub Pages)
-You can play the game directly in your browser without downloading anything:
-1. Go to your repository **Settings**.
-2. Navigate to the **Pages** section in the left sidebar.
-3. Under **Build and deployment > Branch**, select `master` and folder `/root`.
-4. Click **Save**.
-5. After a minute, your game will be live at: `https://<your-username>.github.io/titanic/`
-
-### Option 2: Local Development
-If you have the code on your computer:
-1. Open your terminal in the project folder.
-2. Run a local server:
-   ```bash
-   npx serve
-   ```
-3. Open `http://localhost:3000` in your browser.
-
-## 🎮 Controls
-
-### Desktop
-- **1, 2, 3**: Switch control (Ship, Jack, Rose).
-- **W, A, S, D / Arrows**: Move / Steer.
-- **K**: Cycle through Rooms (Deck, Dining, Cabin, Lounge).
-- **L**: Trigger the "I'm flying" cinematic (at the bow, Jack & Rose proximity required).
-- **Shift**: Sprint.
-- **F**: Eat (at Dining Table).
-- **X**: Sleep/Rest (in Cabin).
-- **T**: Toggle Icebergs (Off / Normal / Double).
-
-### Mobile
-- **Virtual Joystick**: Move character/ship.
-- **Swipe (Right Side)**: Rotate camera.
-- **Pinch**: Zoom in/out.
-- **Context Buttons**: Appear at the bottom for actions like "Fly", "Eat", or "Room change".
-
-## 🛠 Features
-- **3D Ocean Physics**: Dynamic swells and procedural wake.
-- **Cinematic Camera**: Smooth follow and specialized "shot" angles.
-- **Survival System**: Manage hunger, warmth, energy, and mood.
-- **Dynamic Sinking**: Progressive hull tilting and realistic breakage.
-- **Automated Tests**: Built-in validation at `/test.html`.
-
-## 📂 Project Structure
-- `index.html`: Main game entry point.
-- `js/main.js`: Main engine and logic.
-- `js/input.js`: Unified input (Mobile/Desktop).
-- `js/ship.js`: 3D Ship model and sinking physics.
-- `test.html`: Automated test suite.
+**Титанік: Легенда океану** — це кінематографічна 3D-симуляція останнього рейсу легендарного лайнера, побудована на Three.js. Досліджуйте деталізовані палуби та інтер'єри, переживайте культові моменти та спробуйте вижити під час катастрофи.
 
 ---
-## 🏗️ Збірка та Продакшн
 
-### Як зібрати проект локально:
-1. Встановіть залежності: `npm install`
-2. Запустіть збірку: `npm run build`
-Результати з'являться в папці `dist_site/`.
+## 🎮 Про гру
+Ви можете вільно досліджувати корабель, відвідувати розкішні локації (Їдальня, Каюта, Парадні сходи), керувати самим лайнером та взаємодіяти з персонажами. 
+
+*Останні технічні оновлення:*
+- **Архітектура**: Корпус корабля подовжено на 2%, а палуби стали на 5% вищими для надання судну більшої величності.
+- **Оптимізація**: Повністю мініфікований та версіонований код для миттєвого завантаження.
+- **PWA**: Підтримка встановлення на мобільний для гри на весь екран.
+
+---
+
+## ⌨️ Керування (ПК)
+### Режими та Навігація:
+- **1, 2, 3**: Перемикання керування (**1** - Корабель, **2** - Джек, **3** - Роуз).
+- **P**: Режим вільної камери (Freecam).
+- **K**: Подорож між кімнатами (Палуба, Їдальня, Каюта, Хол).
+- **Q / E**: Спуск або підйом на палубу вище/нижче.
+
+### Рух та Дії:
+- **W, A, S, D** або **Стрілочки**: Рух / Керування штурвалом.
+- **Shift**: Біг.
+- **F**: Поїсти (біля столу в їдальні).
+- **X**: Відпочити/Лежати (в каюті).
+- **Z**: Сісти (на стільці/лавки).
+- **L**: Сцена "Я лечу" (на носі корабля, коли Джек і Роуз поруч).
+- **T**: Змінити складність айсбергів (Вимк / Норма / Подвійно).
+
+---
+
+## 📱 Керування (Мобільні)
+**Порада:** Використовуйте функцію "Додати на початковий екран" у браузері для гри у повноекранному режимі без панелей браузера.
+
+- **Віртуальний джойстик**: Плавне пересування персонажів та пропорційне керування штурвалом корабля.
+- **Свайпи**: Огляд камерою.
+- **Pinch (щипок)**: Масштабування камери.
+- **Контекстні кнопки**: З'являються знизу справа для дій (Поїсти, Сісти, Змінити палубу).
+
+---
+
+## 🏗️ Розробка та Збірка
+Проект використовує сучасний pipeline для оптимізації:
+- **Збірка**: `npm run build` — створює оптимізовану папку `dist_site`.
+- **Автоматизація**: Кожен `git push` автоматично оновлює сайт через GitHub Actions.
+- **Тести**: Доступні за адресою `/test.html`.
+
+---
 
 ### Налаштування GitHub для автоматичного деплою:
-Щоб автоматична збірка працювала на сервері, потрібно один раз налаштувати права доступу у вашому репозиторії:
-1. **Дозволи GitHub Actions**:
-   - Перейдіть у **Settings** -> **Actions** -> **General**.
-   - У розділі **Workflow permissions** виберіть **Read and write permissions** та натисніть **Save**.
-2. **Налаштування Сторінки (Pages)**:
-   - Після першого успішного запуску Action (вкладка Actions), з'явиться нова гілка `gh-pages`.
-   - Перейдіть у **Settings** -> **Pages**.
-   - У розділі **Build and deployment > Branch** виберіть `gh-pages` та натисніть **Save**.
+Щоб автоматична збірка працювала на сервері:
+1. **Дозволи**: `Settings -> Actions -> General -> Workflow permissions` змінити на **Read and write permissions**.
+2. **Сторінка**: Після першого паблишу в `Settings -> Pages` виберіть гілку `gh-pages`.
 
 *Created with cinematic passion for history.*
