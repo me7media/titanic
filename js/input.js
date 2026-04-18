@@ -295,8 +295,8 @@ function updateMobileContext() {
         z: document.getElementById('btn-action-z'),
         c: document.getElementById('btn-action-c'),
         l: document.getElementById('btn-action-l'),
-        deckUp: document.getElementById('btn-deck-down'),
-        deckDown: document.getElementById('btn-deck-up'),
+        deckUp: document.getElementById('btn-deck-up'),
+        deckDown: document.getElementById('btn-deck-down'),
     };
 
     const modeTabs = {
@@ -320,19 +320,21 @@ function updateMobileContext() {
     const room = game.currentRoom;
     const mode = game.controlMode;
 
-    if (mode === 'freecam') {
+    if (mode === 'ship' || mode === 'freecam') {
         return;
     }
 
     if (room === 'deck') {
-        if (mode === 'ship') {
-            if (btns.l) btns.l.style.display = 'flex';
-            return;
-        }
         if (btns.deckUp) btns.deckUp.style.display = 'flex';
         if (btns.deckDown) btns.deckDown.style.display = 'flex';
-        if (btns.z) btns.z.style.display = 'flex';
-        if (btns.l) btns.l.style.display = 'flex';
+
+        // Contextual buttons for characters
+        if (mode === 'rose') {
+            if (btns.l) btns.l.style.display = 'flex';
+        }
+        if (mode === 'jack' || mode === 'rose') {
+            if (btns.z) btns.z.style.display = 'flex';
+        }
     } else if (room === 'dining') {
         if (btns.f) btns.f.style.display = 'flex';
         if (btns.z) btns.z.style.display = 'flex';
