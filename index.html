@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="uk">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Титанік: Легенда океану</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Playfair+Display:ital,wght@0,700;1,700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <div id="game-container">
+        <div id="film-grain"></div>
+
+        <div id="ui-overlay">
+            <header>
+                <h1>Титанік</h1>
+                <div id="mode-indicator">Режим: <span id="current-mode">Корабель</span></div>
+            </header>
+
+            <div id="character-stats">
+                <div class="stat-group">
+                    <span class="stat-name">Джек</span>
+                    <div class="stat-label-row"><span class="stat-icon">🍖</span>
+                        <div class="stat-bar">
+                            <div id="jack-hunger" class="bar-fill"></div>
+                        </div>
+                    </div>
+                    <div class="stat-label-row"><span class="stat-icon">🌡️</span>
+                        <div class="stat-bar">
+                            <div id="jack-warmth" class="bar-fill"></div>
+                        </div>
+                    </div>
+                    <div class="stat-label-row"><span class="stat-icon">⚡</span>
+                        <div class="stat-bar">
+                            <div id="jack-energy" class="bar-fill" style="background:#4af"></div>
+                        </div>
+                    </div>
+                    <div class="stat-label-row"><span class="stat-icon">😊</span>
+                        <div class="stat-bar">
+                            <div id="jack-mood" class="bar-fill" style="background:#f4a"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-group">
+                    <span class="stat-name">Роуз</span>
+                    <div class="stat-label-row"><span class="stat-icon">🍖</span>
+                        <div class="stat-bar">
+                            <div id="rose-hunger" class="bar-fill"></div>
+                        </div>
+                    </div>
+                    <div class="stat-label-row"><span class="stat-icon">🌡️</span>
+                        <div class="stat-bar">
+                            <div id="rose-warmth" class="bar-fill"></div>
+                        </div>
+                    </div>
+                    <div class="stat-label-row"><span class="stat-icon">⚡</span>
+                        <div class="stat-bar">
+                            <div id="rose-energy" class="bar-fill" style="background:#4af"></div>
+                        </div>
+                    </div>
+                    <div class="stat-label-row"><span class="stat-icon">😊</span>
+                        <div class="stat-bar">
+                            <div id="rose-mood" class="bar-fill" style="background:#f4a"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="message-display"></div>
+
+            <nav id="controls-hint">
+                <div class="hint-item"><span>1</span> 🚢 Керувати кораблем</div>
+                <div class="hint-item"><span>2</span> 🧍 Джек</div>
+                <div class="hint-item"><span>3</span> 👩 Роуз</div>
+                <div class="hint-item"><span>K</span> 🚪 Перейти до кімнати</div>
+                <div class="hint-item"><span>H</span> ❓ Допомога</div>
+            </nav>
+
+            <div id="help-menu" class="hidden">
+                <button id="close-help">✖</button>
+                <h2>Керування / Довідка</h2>
+                <ul>
+                    <li><strong>W / S:</strong> Швидкість корабля (Вперед/Назад) або рух персонажів</li>
+                    <li><strong>A / D:</strong> Поворот персонажів (ліворуч/праворуч)</li>
+                    <li><strong>1:</strong> Обрати керування Кораблем</li>
+                    <li><strong>2:</strong> Обрати керування Джеком</li>
+                    <li><strong>3:</strong> Обрати керування Роуз</li>
+                    <li><strong>Z:</strong> Сісти (вкл/викл)</li>
+                    <li><strong>C:</strong> Поклон (вкл/викл)</li>
+                    <li><strong>X:</strong> Лягти (вкл/викл)</li>
+                    <li><strong>F:</strong> Поїсти (відновлює їжу та енергію)</li>
+                    <li><strong>L:</strong> Сцена "Я лечу" (Тільки Роуз, якщо Джек поруч!)</li>
+                    <li><strong>K:</strong> Перейти в інтер'єр (Зал, Каюта) або на Палубу</li>
+                    <li><strong>E / Q (на вулиці):</strong> Піднятись/Спуститись між палубами</li>
+                    <li><strong>T:</strong> Перемикач айсбергів (Нормально / x2 / Вимкнено)</li>
+                    <li><strong>P:</strong> Вільна камера (літати на стрілочках)</li>
+                    <li><strong>H:</strong> Відкрити / закрити це меню</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Mobile Touch Controls (hidden on desktop) -->
+        <div id="mobile-controls" class="hidden">
+            <!-- Mode Tabs -->
+            <div class="mobile-toggle-group">
+                <button id="btn-mode-ship" class="mobile-btn toggle-btn">🚢</button>
+                <button id="btn-mode-jack" class="mobile-btn toggle-btn">👨</button>
+                <button id="btn-mode-rose" class="mobile-btn toggle-btn">👩</button>
+                <button id="btn-mode-free" class="mobile-btn toggle-btn">🎥</button>
+                <button id="btn-room" class="mobile-btn toggle-btn">🚪</button>
+            </div>
+
+            <!-- Virtual Joystick -->
+            <div id="joystick-zone"></div>
+
+            <!-- Context Action Buttons (right side) -->
+            <div id="mobile-actions">
+                <button id="btn-action-f" class="action-btn" style="display:none">🍖<span>Їсти</span></button>
+                <button id="btn-action-x" class="action-btn" style="display:none">🛏<span>Лягти</span></button>
+                <button id="btn-action-z" class="action-btn" style="display:none">🪑<span>Сісти</span></button>
+                <button id="btn-action-c" class="action-btn" style="display:none">🎩<span>Поклон</span></button>
+                <button id="btn-action-l" class="action-btn" style="display:none">✈️<span>Лечу!</span></button>
+            </div>
+
+            <!-- Deck Level & Sprint -->
+            <div id="mobile-bottom-bar">
+                <button id="btn-deck-down" class="bottom-btn" style="display:none">⬇️</button>
+                <button id="btn-deck-up" class="bottom-btn" style="display:none">⬆️</button>
+                <button id="btn-sprint" class="bottom-btn sprint-btn">🏃</button>
+            </div>
+        </div>
+
+        <div id="start-screen" class="overlay-full">
+            <div class="content">
+                <h1 class="logo">Титанік 3D</h1>
+                <p>Допоможи Джеку та Роуз вижити під час легендарної подорожі</p>
+                <button id="start-btn">Почати подорож</button>
+                <div style="margin-top: 15px;">
+                    <a href="gallery.html"
+                        style="color: #6688cc; text-decoration: none; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Переглянути
+                        галерею (3D Showcase)</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Three.js (WebGL Engine) -->
+    <script src="./js/three.min.js"></script>
+    <script src="./js/nipplejs.min.js"></script>
+    <script type="module" src="dist/main.bundle.js?v=1.0.0"></script>
+</body>
+
+</html>

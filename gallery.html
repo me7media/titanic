@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="uk">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Титанік: Галерея Дизайну</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #050a14;
+            cursor: grab;
+        }
+
+        #gallery-ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            background: rgba(10, 20, 40, 0.85);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            color: white;
+            width: 240px;
+            pointer-events: auto;
+        }
+
+        h2 {
+            margin: 0 0 15px 0;
+            font-family: 'Playfair Display', serif;
+            color: #ccaa55;
+            border-bottom: 1px solid #ccaa5544;
+            padding-bottom: 5px;
+        }
+
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        button {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        button:hover {
+            background: rgba(204, 170, 85, 0.3);
+            border-color: #ccaa55;
+            transform: translateX(5px);
+        }
+
+        button.active {
+            background: #ccaa55;
+            color: #1a0f00;
+            font-weight: bold;
+            border-color: white;
+        }
+
+        #controls-hint {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 14px;
+            text-align: right;
+        }
+
+        .back-link {
+            display: block;
+            margin-top: 15px;
+            text-decoration: none;
+            color: #88aaff;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="gallery-ui">
+        <h2>Галерея</h2>
+        <div class="btn-group">
+            <button id="show-ship" class="active">Повний Корабель</button>
+            <button id="show-boat">Детальна Шлюпка</button>
+            <button id="show-chars">Джек та Роуз</button>
+            <button id="show-dining">Їдальня (1 клас)</button>
+            <button id="show-cabin">Каюта Джека</button>
+            <button id="show-lounge">Лаунж-зона</button>
+        </div>
+        <a href="index.html" class="back-link">← Повернутися у гру</a>
+    </div>
+
+    <div id="controls-hint">Перетягуй мишкою, щоб оглянути об'єкти</div>
+
+    <script src="./js/three.min.js"></script>
+    <script type="module" src="dist/gallery.bundle.js?v=1.0.0"></script>
+</body>
+
+</html>
