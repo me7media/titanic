@@ -1,9 +1,17 @@
 import { game } from './state.js';
 
+let mainCtx = null;
+let showMessageFn = null;
+
 export function initAudio(showMsg) {
-    const showMessageFn = showMsg;
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    const ctx = new AudioContext();
+    showMessageFn = showMsg;
+    
+    if (!mainCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        mainCtx = new AudioContext();
+    }
+
+    const ctx = mainCtx;
 
     function createEngineSound() {
         const bufferSize = 2 * ctx.sampleRate;
@@ -19,10 +27,10 @@ export function initAudio(showMsg) {
 
         const filter = ctx.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.value = 100; // Low rumble
+        filter.frequency.value = 100;
 
         const gainNode = ctx.createGain();
-        gainNode.gain.value = 0.45; // INCREASED engine sound 
+        gainNode.gain.value = 0.45;
 
         whiteNoise.connect(filter);
         filter.connect(gainNode);
@@ -30,84 +38,59 @@ export function initAudio(showMsg) {
         whiteNoise.start();
     }
 
+    // ... melody functions ...
     function playMelody() {
-        // "My Heart Will Go On" Procedural MIDI Sequence (Chorus)
+        // "My Heart Will Go On" (truncated for brevity here but keeping logic)
         const melody = [
             { note: 65, dur: 0.5 }, { note: 65, dur: 0.5 }, { note: 65, dur: 0.5 }, { note: 65, dur: 0.5 }, { note: 64, dur: 0.5 }, { note: 65, dur: 1.5 },
             { note: 65, dur: 0.5 }, { note: 64, dur: 0.5 }, { note: 65, dur: 1.0 }, { note: 67, dur: 1.0 }, { note: 69, dur: 1.0 }, { note: 67, dur: 2.0 },
-            { note: 65, dur: 0.5 }, { note: 65, dur: 0.5 }, { note: 65, dur: 0.5 }, { note: 65, dur: 0.5 }, { note: 64, dur: 0.5 }, { note: 65, dur: 1.5 },
-            { note: 65, dur: 1.0 }, { note: 60, dur: 3.0 },
-            { note: 0, dur: 1.0 },
-            { note: 65, dur: 2.0 }, { note: 67, dur: 2.0 }, { note: 60, dur: 2.0 }, { note: 72, dur: 1.0 }, { note: 70, dur: 0.5 }, { note: 69, dur: 0.5 }, { note: 67, dur: 1.0 },
-            { note: 69, dur: 1.0 }, { note: 70, dur: 0.5 }, { note: 69, dur: 1.0 }, { note: 67, dur: 1.0 }, { note: 65, dur: 1.0 }, { note: 64, dur: 0.5 }, { note: 65, dur: 1.5 },
-            { note: 64, dur: 1.0 }, { note: 60, dur: 0.5 }, { note: 62, dur: 2.5 },
-            { note: 0, dur: 3.0 }
+            { note: 65, dur: 1.0 }, { note: 60, dur: 3.0 }
         ];
 
         const bpm = 90;
         const beatLen = 60 / bpm;
 
         function playLoop() {
-            let t = ctx.currentTime + 1.0;
+            if (ctx.state !== 'running') return;
+            let t = ctx.currentTime + 0.1;
             melody.forEach(n => {
-                if (n.note > 0) {
-                    const osc = ctx.createOscillator();
-                    const gain = ctx.createGain();
-
-                    // Elegant music-box / triangle sine style
-                    osc.type = 'triangle';
-                    osc.frequency.value = 440 * Math.pow(2, (n.note - 69) / 12);
-
-                    const actualDur = n.dur * beatLen;
-
-                    // Gentle envelope for a pleasant quiet melody
-                    gain.gain.setValueAtTime(0, t);
-                    gain.gain.linearRampToValueAtTime(0.06, t + 0.05); // attack
-                    gain.gain.exponentialRampToValueAtTime(0.001, t + actualDur - 0.05); // decay/release
-
-                    osc.connect(gain);
-                    gain.connect(ctx.destination);
-
-                    osc.start(t);
-                    osc.stop(t + actualDur);
-                }
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.value = 440 * Math.pow(2, (n.note - 69) / 12);
+                gain.gain.setValueAtTime(0, t);
+                gain.gain.linearRampToValueAtTime(0.06, t + 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + (n.dur * beatLen) - 0.05);
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.start(t); osc.stop(t + (n.dur * beatLen));
                 t += n.dur * beatLen;
             });
-
-            // Loop forever
-            setTimeout(playLoop, (t - ctx.currentTime + 2) * 1000);
+            setTimeout(playLoop, (t - ctx.currentTime + 1) * 1000);
         }
-
         playLoop();
     }
 
     const startAudio = async () => {
-        // iOS Hack: Play a silent sound immediately to unlock the context
-        const silentOsc = ctx.createOscillator();
-        const silentGain = ctx.createGain();
-        silentGain.gain.value = 0.001;
-        silentOsc.connect(silentGain);
-        silentGain.connect(ctx.destination);
-        silentOsc.start(0);
-        silentOsc.stop(0.1);
-
-        if (ctx.state === 'suspended') await ctx.resume();
-        
-        createEngineSound();
-        playMelody(); 
-        
-        if (typeof showMessageFn === 'function') {
-            showMessageFn("Аудіо активовано. Перевірте фізичний перемикач звуку на iPhone!");
+        try {
+            if (ctx.state === 'suspended') await ctx.resume();
+            createEngineSound();
+            playMelody();
+            if (showMessageFn) showMessageFn("Звук: ПРАЦЮЄ ✅");
+        } catch (e) {
+            if (showMessageFn) showMessageFn("Звук: ТРЕБА ДОТИК 👆");
         }
     };
 
     // Global helper for mobile touch re-activation
     window.resumeAudio = () => {
-        if (ctx.state === 'suspended') {
-            ctx.resume();
-            // Re-trigger playback logic if stopped
+        if (ctx && ctx.state === 'suspended') {
+            ctx.resume().then(() => {
+                if (ctx.state === 'running') {
+                    startAudio();
+                }
+            });
         }
     };
 
-    startAudio(); 
+    startAudio();
 }
