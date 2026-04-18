@@ -7,7 +7,7 @@
     "dev": "npx serve",
     "build": "node build.js",
     "bundle": "npx esbuild js/main.js --bundle --minify --outfile=dist/bundle.js && npx esbuild js/gallery.js --bundle --minify --outfile=dist/gallery.bundle.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npx playwright test"
   },
   "keywords": [],
   "author": "",

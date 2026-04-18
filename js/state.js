@@ -48,8 +48,8 @@ export const game = {
     /** Iceberg difficulty: 'off', 'normal', 'double' */
     icebergMode: 'normal', 
     players: {
-        jack: { name: 'Джек', x: 10, z: 2, alive: true, energy: 100, mood: 100, hunger: 100, warmth: 100, pose: 'stand' },
-        rose: { name: 'Роуз', x: 20, z: -2, alive: true, energy: 100, mood: 100, hunger: 100, warmth: 100, pose: 'stand' }
+        jack: { name: 'Джек', x: 0, z: 0, alive: true, energy: 100, mood: 100, hunger: 100, warmth: 100, pose: 'stand' },
+        rose: { name: 'Роуз', x: 10, z: -2, alive: true, energy: 100, mood: 100, hunger: 100, warmth: 100, pose: 'stand' }
     },
     audio: {
         ctx: null, active: false

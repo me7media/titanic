@@ -26,10 +26,18 @@ export function initInput(showMsg) {
     // ─── Desktop: Keyboard ───
     window.addEventListener('keydown', e => {
         if (e.repeat) return;
+        const k = e.key.toLowerCase();
+        if (k === 't') {
+            if (game.t_pressed) return;
+            game.t_pressed = true;
+        }
         game.keys[e.key] = true;
         handleToggleKey(e.key);
     });
-    window.addEventListener('keyup', e => game.keys[e.key] = false);
+    window.addEventListener('keyup', e => {
+        game.keys[e.key] = false;
+        if (e.key.toLowerCase() === 't') game.t_pressed = false; // Reset debounce
+    });
 
     // ─── Desktop: Mouse ───
     window.addEventListener('mousemove', e => {
@@ -108,6 +116,11 @@ function initMobileControls() {
     const container = document.getElementById('mobile-controls');
     if (!container) return;
     container.classList.remove('hidden');
+
+    // Audio re-activation for mobile (fixes silent start context)
+    window.addEventListener('touchstart', () => {
+        if (typeof window.resumeAudio === 'function') window.resumeAudio();
+    }, { once: false, passive: true });
 
     // Hide desktop hints
     const desktopHints = document.getElementById('controls-hint');
@@ -221,6 +234,7 @@ function initMobileControls() {
     setupToggleButton('btn-mode-jack', '2');
     setupToggleButton('btn-mode-rose', '3');
     setupToggleButton('btn-mode-free', 'p');
+    setupToggleButton('btn-iceberg', 't');
     setupToggleButton('btn-room', 'k');
     setupToggleButton('btn-deck-up', 'e');
     setupToggleButton('btn-deck-down', 'q');
@@ -314,6 +328,7 @@ function updateMobileContext() {
         if (btns.deckUp) btns.deckUp.style.display = 'flex';
         if (btns.deckDown) btns.deckDown.style.display = 'flex';
         if (btns.z) btns.z.style.display = 'flex';
+        if (btns.f) btns.f.style.display = 'flex'; // Added for 'I'm flying' pose
     } else if (room === 'dining') {
         if (btns.f) btns.f.style.display = 'flex';
         if (btns.z) btns.z.style.display = 'flex';

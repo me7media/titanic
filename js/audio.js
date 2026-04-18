@@ -83,11 +83,13 @@ export function initAudio() {
     const startAudio = () => {
         if (ctx.state === 'suspended') ctx.resume();
         createEngineSound();
-        playMelody(); // Start the background music
-        document.removeEventListener('click', startAudio);
-        document.removeEventListener('keydown', startAudio);
+        playMelody(); 
     };
 
-    document.addEventListener('click', startAudio);
-    document.addEventListener('keydown', startAudio);
+    // Global helper for mobile touch re-activation
+    window.resumeAudio = () => {
+        if (ctx.state === 'suspended') ctx.resume();
+    };
+
+    startAudio(); // Start immediately since initAudio is called in interaction handler
 }

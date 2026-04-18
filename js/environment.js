@@ -99,6 +99,8 @@ function spawnIceberg() {
     sceneRef.add(mesh);
     icebergs.push(mesh);
 }
+// Expose for diagnostics
+window.spawnIceberg = spawnIceberg;
 
 /**
  * Updates all environment animations: waves, stars (if moving), wakes, and icebergs.
@@ -136,9 +138,9 @@ export function updateEnvironment(time) {
             const wakeMat = new THREE.MeshBasicMaterial({color: 0xffffff, transparent: true, opacity: 0.6});
             const wake = new THREE.Mesh(wakeGeo, wakeMat);
             wake.rotation.x = -Math.PI / 2;
-            const zSpread = (Math.random() - 0.5) * 30; // Spread across stern width
-            // Relative to ship center (stern is at X ~ -135)
-            wake.position.set(-135, 0.5, zSpread); 
+            const zSpread = (Math.random() - 0.5) * 45; // Wider spread for 32 hull
+            // Relative to ship center (Now at -110 for 220 length)
+            wake.position.set(-110, 0.5, zSpread); 
             if (shipGroup) shipGroup.add(wake);
             else sceneRef.add(wake);
             wakes.push(wake);
@@ -169,10 +171,10 @@ export function updateEnvironment(time) {
             let idx = i * 3;
             if (foamLives[i] <= 0) {
                 if (game.phase === 'sailing' && Math.random() < 0.2 * game.ship.speed) { 
-                    foamPosArr[idx] = 60 + Math.random() * 10; 
+                    foamPosArr[idx] = 100 + Math.random() * 10; // Moved to new bow (110)
                     const side = Math.random() > 0.5 ? 1 : -1;
-                    // Spawn relative to ship's current Z position
-                    foamPosArr[idx+2] = game.ship.zPos + side * (5 + Math.random() * 5); 
+                    // Spawn at the edge of the 32-width hull (radius 16)
+                    foamPosArr[idx+2] = game.ship.zPos + side * (15 + Math.random() * 5); 
                     foamPosArr[idx+1] = 0; 
                     foamLives[i] = 1.0;
                 }

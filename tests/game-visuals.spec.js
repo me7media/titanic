@@ -1,4 +1,4 @@
-const { test, expect } = require('@playwright/test');
+import { test, expect } from '@playwright/test';
 
 test.describe('🚢 3D WebGL Engine Visuals & UI Tests', () => {
   test.beforeEach(async ({ page }) => {

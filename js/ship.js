@@ -38,34 +38,28 @@ export function initShip(scene) {
      */
     function getHullZ(x, y, maxZ) {
         let z = maxZ;
-        const ny = Math.max(0, Math.min(1, (y + 5) / 30)); // 0 at bottom, 1 at top deck
-        
-        // Lower width factor (U-Shape vs V-Shape)
+        const ny = Math.max(0, Math.min(1, (y + 5) / 25)); // Adjusted for 18-height hull
         const uShape = 0.5 + 0.5 * Math.pow(ny, 0.4); 
         z *= uShape;
 
-        // Nose Taper (Sharp Power Function)
-        if (x > 25) {
-            const t = (x - 25) / 45; // spans from 25 to 70
+        // Nose Taper (Sharp Power Function for 220 length)
+        if (x > 35) {
+            const t = (x - 35) / 75; // spans to 110
             z *= Math.max(0, 1 - Math.pow(t, 2.2));
         }
         
-        // Stern Taper (Elliptical Power Function)
-        if (x < -20) {
-            const t = (-x - 20) / 50; // spans from -20 to -70
+        // Stern Taper (Elliptical Power Function for 220 length)
+        if (x < -30) {
+            const t = (-x - 30) / 80; // spans to -110
             z *= Math.sqrt(Math.max(0, 1 - Math.pow(t, 2.5)));
         }
-        
         return z;
     }
 
-    /**
-     * Parabolic Sheer (Deck rise towards the bow)
-     */
     function getSheer(x) {
-        if (x < 10) return 0;
-        const t = (x - 10) / 60;
-        return Math.pow(t, 2) * 5.0; // Slightly more rise
+        if (x < 20) return 0;
+        const t = (x - 20) / 90;
+        return Math.pow(t, 2) * 5.5; 
     }
     shipGroup._getSheer = getSheer; // Export for physics
 
@@ -95,11 +89,11 @@ export function initShip(scene) {
         (isStern ? sternGroup : bowGroup).add(mesh);
     }
 
-    // Create halves (Width 21) - seamless when joined
-    createSplitHull(21, 140, 25, 10, hullMat, false);
-    createSplitHull(21, 140, 25, 10, hullMat, true);
-    createSplitHull(20.6, 138, 10, -2, bottomMat, false);
-    createSplitHull(20.6, 138, 10, -2, bottomMat, true);
+    // Create halves (Width 32, Length 220, Height 18)
+    createSplitHull(32, 220, 18, 10, hullMat, false);
+    createSplitHull(32, 220, 18, 10, hullMat, true);
+    createSplitHull(31.6, 218, 10, -8, bottomMat, false);
+    createSplitHull(31.6, 218, 10, -8, bottomMat, true);
 
     // Add glowing blue portholes along the hull sides
     const portMat = new THREE.MeshBasicMaterial({ color: 0x88bbff, side: THREE.DoubleSide });
@@ -109,7 +103,7 @@ export function initShip(scene) {
         if (Math.abs(x) < 1.0) return; 
         const group = x < 0 ? sternModelGroup : bowModelGroup;
         const sheer = getSheer(x);
-        const hullZ = getHullZ(x, y + sheer, 10.5); // 10.5 is half of 21
+        const hullZ = getHullZ(x, y + sheer, 16.0); // 16.0 is half of 32
         
         const p1 = new THREE.Mesh(portGeo, portMat);
         p1.position.set(x, y + sheer, hullZ + 0.05);
@@ -122,15 +116,11 @@ export function initShip(scene) {
 
     // Top tier: Groups of 3 (gap on every 4th)
     let pCount = 0;
-    for (let x = -60; x <= 60; x += 1.2) {
-        if (pCount++ % 4 !== 3) addPort(x, 22.5);
+    for (let x = -85; x <= 85; x += 1.2) {
+        if (pCount++ % 4 !== 3) addPort(x, 15.5);
     }
-    
-    // Middle tier: Continual spaced line
-    for (let x = -58; x <= 58; x += 1.6) addPort(x, 19.5);
-    
-    // Bottom tier: Widely spaced
-    for (let x = -56; x <= 56; x += 4.5) addPort(x, 16.0);
+    for (let x = -82; x <= 82; x += 1.6) addPort(x, 12.5);
+    for (let x = -80; x <= 80; x += 4.5) addPort(x, 9.0);
 
     // Decks
     /**
@@ -212,6 +202,16 @@ export function initShip(scene) {
             roof.position.set(cx, yLevel + baseH, 0);
             targetGroup.add(roof);
 
+            // Forward Facing Windows (Add detail to the front walls of tiers)
+            const winGeo = new THREE.PlaneGeometry(0.8, 1.2);
+            for (let j = -depth / 2 + 2; j <= depth / 2 - 2; j += 2.5) {
+                const win = new THREE.Mesh(winGeo, windowMat);
+                // Position at the front face (+X end of the tier block)
+                win.position.set(cx + w / 2 + 0.05, yLevel + baseH / 2, j);
+                win.rotation.y = Math.PI / 2;
+                targetGroup.add(win);
+            }
+
             const wndGeo = new THREE.PlaneGeometry(0.8, 1.2);
             for (let x = sX + 2; x < eX - 2; x += 3.0) {
                 if (Math.random() > 0.2) {
@@ -245,14 +245,15 @@ export function initShip(scene) {
     };
 
     // Superstructures (Heights adjusted for better scale)
-    buildTier(-42, 33.6, 4.2, 19, 25.1); // C-Deck
-    buildTier(-35, 25, 4.2, 17, 29.83);  // B-Deck
-    buildTier(-32, 29, 3.68, 15, 34.03); // A-Deck
-    buildTier(-20, 15, 2.63, 13, 37.71); // Boat Deck
+    // Superstructures (Widened and Adjusted)
+    buildTier(-80, 70, 4.2, 30, 18.1); // C-Deck
+    buildTier(-70, 50, 4.0, 28, 22.3); // B-Deck
+    buildTier(-60, 55, 3.5, 24, 26.3); // A-Deck
+    buildTier(-40, 30, 2.5, 18, 29.8); // Boat Deck
 
-    // Bridge & Wings
+    // Bridge & Wings (Lowered to 32.3)
     const bridgeFront = new THREE.Mesh(new THREE.BoxGeometry(0.5, 3, 10), woodMat);
-    bridgeFront.position.set(22.5, 38.5, 0);
+    bridgeFront.position.set(30, 32.3 + 1.5, 0); // Positioned at the front of Boat Deck
     bowModelGroup.add(bridgeFront);
 
 
@@ -305,14 +306,15 @@ export function initShip(scene) {
         const cGrp = new THREE.Group();
         const crBase = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 3), whiteMat);
         crBase.position.y = 1.5; cGrp.add(crBase);
-        const crArm = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 8), whiteMat);
-        crArm.position.set(2.5, 4, 0); crArm.rotation.z = Math.PI / 3; cGrp.add(crArm);
-        cGrp.position.set(x, 25.1, z);
+        const crArm = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 10), whiteMat);
+        crArm.position.set(3, 4, 0); crArm.rotation.z = Math.PI / 3; cGrp.add(crArm);
+        const s = getSheer(x);
+        cGrp.position.set(x, 18.1 + s, z); // Anchored to dynamic Main Deck height
         bowModelGroup.add(cGrp);
     }
-    buildCrane(48, 2.5);
-    buildCrane(48, -2.5);
-    buildCrane(52, 0);
+    buildCrane(85, 4);
+    buildCrane(85, -4);
+    buildCrane(92, 0);
 
     // Funnels
     if (!shipGroup.userData) shipGroup.userData = {};
@@ -321,8 +323,8 @@ export function initShip(scene) {
     const funnelObjGeo = new THREE.CylinderGeometry(1.6, 1.6, 12, 16);
     const funnelCapGeo = new THREE.CylinderGeometry(1.65, 1.65, 2.5, 16);
     for (let i = 0; i < 4; i++) {
-        const cx = 22 - (i * 16);
-        const cy = 44;
+        const cx = 40 - (i * 25);
+        const cy = 34; // Lowered to match new deck heights
         const tg = cx < 0 ? sternModelGroup : bowModelGroup;
 
         shipGroup.userData.funnels.push({ x: cx, y: cy + 5, z: 0 });
@@ -348,7 +350,7 @@ export function initShip(scene) {
             }
         }
 
-        // Funnel Rigging Cables tying to the deck
+        // Funnel Rigging Cables (Anchored to deck at 32.3)
         const createCable = (vx, vy, vz) => {
             const geo = new THREE.BufferGeometry().setFromPoints([
                 new THREE.Vector3(cx, cy + 5, 0),
@@ -356,47 +358,76 @@ export function initShip(scene) {
             ]);
             tg.add(new THREE.Line(geo, wireMat));
         };
-        createCable(cx + 6, 38.5, 5);
-        createCable(cx + 6, 38.5, -5);
-        createCable(cx - 6, 38.5, 5);
-        createCable(cx - 6, 38.5, -5);
+        createCable(cx + 6, 32.3, 5);
+        createCable(cx + 6, 32.3, -5);
+        createCable(cx - 6, 32.3, 5);
+        createCable(cx - 6, 32.3, -5);
     }
 
-    // Masts
+    // Masts (Moved to edges of 220-length hull)
     const mastGeo = new THREE.CylinderGeometry(0.3, 0.5, 45, 8);
     const foremast = new THREE.Mesh(mastGeo, woodMat);
-    foremast.position.set(55, 40, 0);
+    foremast.position.set(95, 30, 0); // Fore
     foremast.rotation.z = RAKE;
     bowModelGroup.add(foremast);
 
     const mainmast = new THREE.Mesh(mastGeo, woodMat);
-    mainmast.position.set(-60, 40, 0);
+    mainmast.position.set(-95, 26, 0); // Aft
     mainmast.rotation.z = RAKE;
     sternModelGroup.add(mainmast);
 
     // Marconi Antennas (Catenary curve between tilted masts)
     const antennaCount = 4;
     const mastH = 45;
-    const offX = -Math.sin(RAKE) * (mastH / 2); // towards stern
-    const offY = Math.cos(RAKE) * (mastH / 2);  
+    const offX_fore = -Math.sin(RAKE) * (mastH / 2); 
+    const offX_main = Math.sin(RAKE) * (mastH / 2); // Tilt towards center
+    const offY_tip = Math.cos(RAKE) * (mastH / 2);  
     
-    const pFore = new THREE.Vector3(55 + offX, 40 + offY - 1, 0);
-    const pMain = new THREE.Vector3(-60 + offX, 40 + offY - 1, 0);
+    // Accurate anchor points at mast tops
+    const pFore = new THREE.Vector3(95 + offX_fore, 30 + offY_tip, 0);
+    const pMain = new THREE.Vector3(-95 + offX_main, 26 + offY_tip, 0);
     
+    shipGroup.userData.antennas = [];
     for (let i = 0; i < antennaCount; i++) {
         const offsetZ = (i - (antennaCount-1)/2) * 0.8;
         const pts = [];
         const dist = pFore.x - pMain.x;
-        for (let t = 0; t <= 1; t += 0.05) {
+        for (let t = 0; t <= 1; t += 0.02) { // More segments for smooth curve
             const tx = pMain.x + t * dist;
             // Catenary-like sag: hyperbolic cosine offset
             const mid = (t - 0.5) * 2; // -1 to 1
-            const sag = (Math.cosh(mid) - 1.54) * 2.5; 
+            const sag = (Math.cosh(mid) - 1.54) * 4.5; // Deeper, more atmospheric sag
             pts.push(new THREE.Vector3(tx, pFore.y + sag, offsetZ));
         }
         const antennaGeo = new THREE.BufferGeometry().setFromPoints(pts);
-        shipGroup.add(new THREE.Line(antennaGeo, wireMat));
+        const aLine = new THREE.Line(antennaGeo, wireMat);
+        shipGroup.userData.antennas.push(aLine);
+        shipGroup.add(aLine);
     }
+
+    // Mast Guy-Wires (Rigging connecting to dynamic deck & tapering hull)
+    function buildMastRigging(mx, my, tg) {
+        const tiltX = (mx > 0 ? -1 : 1) * Math.sin(RAKE) * (mastH / 2);
+        const top = new THREE.Vector3(mx + tiltX, my + offY_tip, 0);
+        const sideOffsets = [
+            { x: 14, zSide: 1 }, { x: 14, zSide: -1 },
+            { x: -14, zSide: 1 }, { x: -14, zSide: -1 }
+        ];
+        sideOffsets.forEach(off => {
+            const anchorX = mx + off.x;
+            const anchorY = 18.1 + getSheer(anchorX); 
+            // Calculate actual hull width at this X point to avoid flying cables
+            const anchorZ = getHullZ(anchorX, anchorY, 16.0) * off.zSide; 
+            
+            const geo = new THREE.BufferGeometry().setFromPoints([
+                top,
+                new THREE.Vector3(anchorX, anchorY, anchorZ)
+            ]);
+            tg.add(new THREE.Line(geo, wireMat));
+        });
+    }
+    buildMastRigging(95, 30, bowModelGroup);
+    buildMastRigging(-95, 26, sternModelGroup);
     
     // Deck Details (Vents, Skylights, Hatches, and Pool)
     const buildVent = (x, y, z) => {
@@ -432,18 +463,18 @@ export function initShip(scene) {
         (x < 0 ? sternModelGroup : bowModelGroup).add(p);
     };
 
-    // Placement of Details
-    buildHatch(55, 25.1, 0, 8, 8); // Forward Hatch
-    buildHatch(-55, 25.1, 0, 6, 6); // Aft Hatch
-    buildPool(-2, 37.71, 0); // Centered on Boat Deck
+    // Placement of Details (Corrected Y to 32.3 for Boat Deck surface)
+    buildHatch(85, 18.2, 0, 8, 8); 
+    buildHatch(-85, 18.2, 0, 8, 8); 
+    buildPool(-2, 32.3, 0); 
 
-    // Vents and Skylights along the Boat Deck (Strictly within -20 to 15)
-    for (let i = 0; i < 3; i++) {
-        const vx = 10 - (i * 12);
-        if (vx < 14 && vx > -19) {
-            buildVent(vx, 37.71, 3.5);
-            buildVent(vx, 37.71, -3.5);
-            buildSkylight(vx - 5, 37.71, 0, 3.5, 3);
+    // Vents and Skylights along the Boat Deck (Corrected Y to 32.3)
+    for (let i = 0; i < 5; i++) {
+        const vx = 25 - (i * 12);
+        if (vx < 30 && vx > -40) {
+            buildVent(vx, 32.3, 4.5);
+            buildVent(vx, 32.3, -4.5);
+            buildSkylight(vx - 5, 32.3, 0, 4.5, 4);
         }
     }
 
@@ -508,13 +539,14 @@ export function initShip(scene) {
         }
         
         const sheerPos = getSheer(x);
-        boatGrp.position.set(x, 37.0 + sheerPos, z);
+        boatGrp.position.set(x, 29.2 + sheerPos, z);
         (x < 0 ? sternModelGroup : bowModelGroup).add(boatGrp);
     }
     
     for (let side of [-1, 1]) {
-        for (let i = 2; i <= 4; i++) {
-            buildLifeboat(23 - (i * 10.5), side * 6.5);
+        for (let i = 0; i < 8; i++) {
+            const bx = 28 - (i * 9); // Space out boats
+            if (bx > -38) buildLifeboat(bx, side * 9.5); // Wider for 32 hull
         }
     }
 
@@ -541,13 +573,19 @@ export function updateShip(shipGroup) {
         // Phase 1: Heavy Bow Dip (Tilt up to ~30 degrees)
         game.ship.tilt = Math.min(0.5, (timeSinceHit / 60) * 0.4); 
         game.ship.sinkY -= 0.003; 
-        shipGroup.rotation.z = game.ship.tilt;
+        shipGroup.rotation.z = -game.ship.tilt; // Bow (+X) goes DOWN
         shipGroup.position.y = game.ship.sinkY;
 
         // The Break Event (~60 seconds in)
         if (timeSinceHit > 60 && !game.ship.isBroken) {
             game.ship.isBroken = true;
             console.warn("SHIP_FRACTURE_EVENT_TRIGGERED");
+
+            // Snapped Antennas disappear
+            if (shipGroup.userData.antennas) {
+                shipGroup.userData.antennas.forEach(a => a.visible = false);
+            }
+
             // Stern 'splashes' back after break
             game.ship.sternBase = 2.0; 
             game.ship.sternY = 0;
@@ -559,13 +597,13 @@ export function updateShip(shipGroup) {
             bowGroup.position.y -= 0.05;
             bowGroup.position.x += 0.04; // Slower slip away
 
-            // Stern rises less vertically but sinks faster
+            // Stern rises to vertical 90 degrees EXACTLY relative to horizon
             game.ship.sternTilt = game.ship.sternTilt || 0;
-            const targetTilt = -1.1; // ~63 degrees
-            game.ship.sternTilt += (targetTilt - game.ship.sternTilt) * 0.002;
+            const targetTilt = -1.57 - shipGroup.rotation.z; 
+            game.ship.sternTilt += (targetTilt - game.ship.sternTilt) * 0.001; 
             sternGroup.rotation.z = game.ship.sternTilt;
             
-            // Stern fills and sinks MUCH faster now
+            // Stern sinks into the abyss TWICE as fast now as requested
             game.ship.sternBase = game.ship.sternBase === undefined ? 8 : game.ship.sternBase - 0.01; 
             game.ship.sternY += (game.ship.sternBase - game.ship.sternY) * 0.01;
             

@@ -21,6 +21,9 @@ window.testBreak = () => {
 
 export let jackMesh, roseMesh;
 export let scene;
+export let gameStatus = 'playing'; // 'playing', 'won', 'lost'
+export let winTimer = 0;
+export let restartTimer = 0;
 let camera, renderer, rescueBoat;
 
 /** @type {THREE.AmbientLight} Global light for overall scene visibility */
@@ -35,11 +38,11 @@ let moonLight;
  * Used for character positioning and physics boundaries on different decks of the ship.
  */
 const DECK_LEVELS = [
-    { name: 'Boat Deck', y: 40.34, minX: -20, maxX: 15, zMax: 5.5 }, 
-    { name: 'A-Deck', y: 37.71, minX: -32, maxX: 29, zMax: 7 },  
-    { name: 'B-Deck', y: 34.03, minX: -35, maxX: 25, zMax: 8.5 }, 
-    { name: 'Superstructure C', y: 29.3, minX: -42, maxX: 33.6, zMax: 9.5 },
-    { name: 'Main Deck', y: 25.1, minX: -68.5, maxX: 68.5, zMax: 9.5 },
+    { name: 'Boat Deck', y: 32.3, minX: -40, maxX: 30, zMax: 9.5 }, 
+    { name: 'A-Deck', y: 29.8, minX: -60, maxX: 55, zMax: 12.5 },  
+    { name: 'B-Deck', y: 26.3, minX: -70, maxX: 50, zMax: 14.5 }, 
+    { name: 'Superstructure C', y: 22.3, minX: -80, maxX: 70, zMax: 15.5 },
+    { name: 'Main Deck', y: 18.1, minX: -110, maxX: 110, zMax: 15.5 },
 ];
 
 /**
@@ -152,9 +155,12 @@ function onWindowResize() {
 function showMessage(text) {
     const msgBox = document.getElementById('message-display');
     if (!msgBox) return;
-    const oldHtml = msgBox.innerHTML;
     msgBox.innerHTML = `<span style="color:#ccaa55; font-size:16px;">${text}</span>`;
-    setTimeout(() => { if (msgBox.innerHTML.includes(text)) msgBox.innerHTML = oldHtml; }, 2000);
+    
+    // Clear specifically this message after 5 seconds
+    setTimeout(() => { 
+        if (msgBox.innerText === text) msgBox.innerHTML = ''; 
+    }, 5000);
 }
 
 /**
@@ -303,10 +309,15 @@ function updateGameplay() {
             // Proportional Steering (Analog feel)
             game.ship.zPos = game.ship.zPos || 0;
             if (Math.abs(j.x) > 0.1) {
-                game.ship.zPos -= j.x * 0.8; // Proportional to joystick tilt
+                game.ship.zPos -= j.x * 0.8; // Corrected sign for joystick (Right = -Z)
             } else {
-                if (game.keys['ArrowLeft'] || game.keys['a']) game.ship.zPos += 0.8;
-                if (game.keys['ArrowRight'] || game.keys['d']) game.ship.zPos -= 0.8;
+                // Handle Steering (Bow turns first, then ship follows)
+                if (game.keys['a'] || game.keys['ArrowLeft']) {
+                    game.ship.zPos += 0.4 * game.ship.speed; 
+                }
+                if (game.keys['d'] || game.keys['ArrowRight']) {
+                    game.ship.zPos -= 0.4 * game.ship.speed; 
+                }
             }
         } else {
             game.ship.speed = 0; // Stop moving forward after hit
@@ -399,27 +410,57 @@ function updateGameplay() {
                     player.warmth = Math.min(100, player.warmth + 1);
                     player.mood = Math.min(100, player.mood + 0.5);
                 }
+                // Active Station Actions (Requires keys)
+                if (currentStationType === 'food' && game.keys['f']) {
+                    player.hunger = Math.min(100, player.hunger + 1.5);
+                }
+                if (currentStationType === 'sleep' && game.keys['x']) {
+                    player.energy = Math.min(100, player.energy + 1.2);
+                }
             }
         }
 
-        // 2. Survival degradation
-        if (game.time % 2 < 0.02) {
-            player.hunger = Math.max(0, player.hunger - (player.pose === 'lie' ? 0.05 : 0.2));
+        // 2. Survival degradation (Paused on rescue boat)
+        let isOnBoat = player.saved || false;
+        if (!isOnBoat && rescueBoat && !isPlayerInterior) {
+            const px = mesh ? mesh.position.x : player.x;
+            const pz = mesh ? mesh.position.z : player.z;
+            const dist = Math.hypot(px - rescueBoat.position.x, pz - rescueBoat.position.z);
+            if (dist < 12) isOnBoat = true; 
+        }
 
-            // Warmth drops fast outdoors, especially if sinking
-            let dropWarmth = isPlayerInterior ? 0.05 : 0.5;
-            if (game.phase === 'sinking' && !isPlayerInterior) dropWarmth *= 4; // CRITICAL COLD IN WATER/DECK
-            player.warmth = Math.max(0, player.warmth - dropWarmth);
+        player.onBoat = isOnBoat;
+
+        if (game.time % 2 < 0.02 && gameStatus === 'playing') {
+            if (!isOnBoat) {
+                player.hunger = Math.max(0, player.hunger - (player.pose === 'lie' ? 0.05 : 0.2));
+                
+                // Warmth drops fast outdoors, especially if sinking
+                let dropWarmth = isPlayerInterior ? 0.05 : 0.5;
+                if (game.phase === 'sinking' && !isPlayerInterior) {
+                    // Slower freezing until the break as requested (2x drop instead of 4x)
+                    dropWarmth *= game.ship.isBroken ? 4 : 2; 
+                }
+                player.warmth = Math.max(0, player.warmth - dropWarmth);
+            }
 
             // Energy drops if hunger/warmth are low
-            if (player.hunger < 20 || player.warmth < 20) {
-                player.energy = Math.max(0, player.energy - 1.0);
-            } else if (player.pose === 'lie') {
-                player.energy = Math.min(100, player.energy + 2.0);
-            } else if (player.pose === 'sit') {
-                player.energy = Math.min(100, player.energy + 1.0);
-            } else {
-                player.energy = Math.max(0, player.energy - 0.2); // natural standing drain
+            if (player.hunger < 1 || player.warmth < 1 || player.energy < 1) {
+                gameStatus = 'lost';
+                showFinalStatus("ПОРАЗКА", "Герої не витримали суворих випробувань океану...");
+                restartTimer = 15;
+            }
+
+            if (!isOnBoat) {
+                if (player.hunger < 20 || player.warmth < 20) {
+                    player.energy = Math.max(0, player.energy - 1.0);
+                } else if (player.pose === 'lie') {
+                    player.energy = Math.min(100, player.energy + 2.0);
+                } else if (player.pose === 'sit') {
+                    player.energy = Math.min(100, player.energy + 1.0);
+                } else {
+                    player.energy = Math.max(0, player.energy - 0.2); // natural standing drain
+                }
             }
 
             const avgStatus = (player.hunger + player.warmth + player.energy) / 3;
@@ -545,11 +586,11 @@ function updateGameplay() {
                 let targetY = bounds.y;
                 if (bounds.name === 'Main Deck') {
                     const x = mesh.position.x;
-                    if (x > 25) { // Bow shear
-                        const t = (x - 25) / (68.5 - 25);
-                        targetY += Math.pow(t, 2) * 5;
+                    if (x > 20) { // Bow shear (Updated for 220 length)
+                        const t = (x - 20) / (110 - 20);
+                        targetY += Math.pow(t, 2) * 5.5;
                     } else if (x < -20) { // Stern shear
-                        const t = (Math.abs(x) - 20) / (68.5 - 20);
+                        const t = (Math.abs(x) - 20) / (110 - 20);
                         targetY += Math.pow(t, 2) * 2;
                     }
                 }
@@ -563,7 +604,8 @@ function updateGameplay() {
             // Lifeboat Rescue Jump trigger
             if (game.phase === 'sinking' && rescueBoat) {
                 rescueBoat.visible = true;
-                rescueBoat.position.z = game.ship.zPos + 18;
+                // Position boat safely beside the ship (Increased offset to 25 to avoid clipping)
+                rescueBoat.position.z = game.ship.zPos + 25;
                 
                 if (mesh.position.z > bounds.zMax - 1 && Math.abs(mesh.position.x - 10) < 15) {
                     playerState.saved = true;
@@ -589,8 +631,98 @@ function gameLoop() {
         updateGameplay();
         updateCamera();
     }
+    if (gameStatus === 'playing') {
+        // Victory only possible AFTER the ship breaks and both are saved
+        if (game.ship.isBroken && game.players.jack.onBoat && game.players.rose.onBoat) {
+            winTimer += 0.016; 
+            if (winTimer > 30) {
+                gameStatus = 'won';
+                showFinalStatus("ПЕРЕМОГА", "Джек та Роуз врятовані! Легенда продовжується...");
+                restartTimer = 15;
+            }
+        } else {
+            winTimer = 0;
+        }
+    }
+
+    if (restartTimer > 0) {
+        restartTimer -= 0.016;
+        const bar = document.getElementById('restart-progress');
+        if (bar) bar.style.width = (restartTimer / 15 * 100) + '%';
+        
+        if (restartTimer < 0.1) {
+            location.reload();
+        }
+    }
+
+    // Render Scene
     renderer.render(scene, camera);
 }
+
+/**
+ * Shows the fullscreen Win/Loss overlay
+ */
+function showFinalStatus(title, desc) {
+    const overlay = document.getElementById('game-status-overlay');
+    const titleEl = document.getElementById('status-title');
+    const descEl = document.getElementById('status-desc');
+    
+    if (!overlay) return;
+    
+    titleEl.innerText = title;
+    descEl.innerText = desc;
+    
+    if (title === 'ПОРАЗКА') titleEl.style.color = '#ff4444';
+    else titleEl.style.color = '#ccaa55';
+    
+    overlay.classList.remove('hidden');
+}
+
+/**
+ * Automated Diagnostic Test
+ * Verifies message timeouts and iceberg spawning logic.
+ * Run in console via: window.runDiagnostics()
+ */
+window.runDiagnostics = function() {
+    console.log("🧪 DIAGNOSTICS_STARTED");
+    
+    // 1. Test Messages
+    const testMsg = "Тест Повідомлення: Зникне через 5 сек...";
+    showMessage(testMsg);
+    console.log(" - Message triggered. Waiting 5.5s to verify clearing...");
+    
+    setTimeout(() => {
+        const msgBox = document.getElementById('message-display');
+        if (msgBox && msgBox.innerHTML.includes(testMsg)) {
+            console.error(" ❌ Msg Timeout FAILED: Message still present after 5.5s");
+        } else {
+            console.log(" ✅ Msg Timeout PASSED: Message cleared.");
+        }
+    }, 5500);
+
+    // 2. Test Iceberg T-Cycle
+    console.log(" - Testing Iceberg Mode cycle (should not jump)...");
+    const initMode = game.icebergMode;
+    game.t_pressed = false; // reset
+    handleToggleKey('t'); // cycle to next
+    console.log("   New Mode:", game.icebergMode);
+    
+    // 3. Test Environmental Spawns
+    console.log(" - Forcing Iceberg Spawn...");
+    if (typeof window.spawnIceberg === 'function') {
+        window.spawnIceberg();
+        console.log(" ✅ Spawn Triggered.");
+    } else {
+        console.warn(" ⚠️ window.spawnIceberg not exposed, check environment.js for exposure.");
+    }
+
+    // 4. Test Sinking Sequence (DRAMA)
+    console.log(" - Testing Sinking Sequence Trigger...");
+    console.log("   TIP: The ship will start sinking BOW-FIRST now.");
+    game.phase = 'sinking';
+    game.ship.sinkStartTime = game.time;
+    game.ship.speed = 0;
+};
 
 export { updateGameplay, init };
 

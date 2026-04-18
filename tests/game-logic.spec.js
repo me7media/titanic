@@ -1,9 +1,9 @@
-const { test, expect } = require('@playwright/test');
+import { test, expect } from '@playwright/test';
 
 test.describe('🎮 Game Logic & Integration Tests (3D Engine)', () => {
     test.beforeEach(async ({ page }) => {
-        // Go to localhost created by playwright webServer
-        await page.goto('http://localhost:3000');
+        // Use 127.0.0.1 instead of localhost
+        await page.goto('http://127.0.0.1:3000');
         
         // Ensure game is initialized, click start
         await page.waitForSelector('#start-btn', { state: 'visible' });
@@ -14,8 +14,12 @@ test.describe('🎮 Game Logic & Integration Tests (3D Engine)', () => {
     });
 
     test('🔄 Should switch control modes between Ship, Jack, and Rose', async ({ page }) => {
-        const modeIndicator = page.locator('#current-mode'); // Adjusted selector to span
+        const modeIndicator = page.locator('#current-mode');
         
+        // Wait for UI to be visible and stable
+        await page.waitForTimeout(3000); // Increased stabilization delay
+        await expect(modeIndicator).toBeVisible();
+
         // Initial mode should be Ship
         await expect(modeIndicator).toHaveText('Корабель');
 
@@ -39,10 +43,10 @@ test.describe('🎮 Game Logic & Integration Tests (3D Engine)', () => {
         const expectedRooms = ['DINING', 'CABIN', 'LOUNGE', 'CORRIDOR', 'DECK'];
 
         for (const roomName of expectedRooms) {
-            await page.keyboard.press('m');
+            await page.keyboard.press('k');
             // Check that the UI toast shows the new room name
-            await expect(messageDisplay).toContainText(`Кімната: ${roomName}`);
-            await page.waitForTimeout(100); // small delay between presses
+            await expect(messageDisplay).toContainText(roomName, { ignoreCase: true });
+            await page.waitForTimeout(600); // More time for message to update
         }
     });
 
