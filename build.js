@@ -13,32 +13,42 @@ console.log(`🚀 Starting Production Build v${VERSION}...`);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
-// 2. Bundle JS using esbuild
-console.log('📦 Bundling scripts...');
+// 2. Bundle JS and CSS using esbuild
+console.log('📦 Bundling and minifying assets...');
 try {
+    // Bundle main JS (nipplejs can be bundled if imported, but here we just minify the main logic)
+    // Note: To bundle nipplejs, we would need to import it in main.js. 
+    // For now, we'll bundle the main logic and minify the CSS.
     execSync(`npx esbuild js/main.js --bundle --minify --outfile=${SITE_DIR}/dist/main.bundle.js`);
     execSync(`npx esbuild js/gallery.js --bundle --minify --outfile=${SITE_DIR}/dist/gallery.bundle.js`);
+    
+    // Minify CSS
+    execSync(`npx esbuild style.css --minify --outfile=${SITE_DIR}/style.css`);
+    
+    console.log('✅ Assets optimized.');
 } catch (err) {
-    console.error('❌ Bundling failed:', err.message);
+    console.error('❌ Build failed:', err.message);
     process.exit(1);
 }
 
-// 3. Copy Static Assets
-console.log('📂 Copying static assets...');
-const assets = ['style.css', 'js/three.min.js', 'js/nipplejs.min.js'];
-assets.forEach(asset => {
-    if (fs.existsSync(asset)) {
-        fs.copyFileSync(asset, path.join(SITE_DIR, asset));
+// 3. Copy External Libraries (Three.js is too large to bundle efficiently without fine-tuning)
+console.log('📂 Copying core libraries...');
+const libs = ['js/three.min.js', 'js/nipplejs.min.js'];
+libs.forEach(lib => {
+    if (fs.existsSync(lib)) {
+        fs.copyFileSync(lib, path.join(SITE_DIR, lib));
     }
 });
 
-// 4. Inject versioning and save to SITE_DIR as index.html
+// 4. Inject versioning and optimize HTML
 console.log('🏷️  Injecting versioning into HTML...');
 const htmlFiles = ['index.html', 'gallery.html'];
 htmlFiles.forEach(file => {
     let content = fs.readFileSync(file, 'utf8');
     
-    // Replace script tags with versioned bundles
+    // Inject version query to CSS and all JS bundles
+    content = content.replace('style.css', `style.css?v=${VERSION}`);
+    
     if (file === 'index.html') {
         content = content.replace(
             /<script type="module" src="js\/main\.js"><\/script>/,
